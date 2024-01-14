@@ -4,9 +4,9 @@ import { DaprClient, DaprServer } from '@dapr/dapr';
 import { INestApplication } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
-import { ContextAwareActorInterface } from './src/context-aware.actor';
 import { DaprContextService } from '../lib';
 import { itWithContext, sleep } from './test.utils';
+import { StatelessCounterActorInterface } from './src/stateless-counter.actor';
 
 // To run inside Dapr use:
 // dapr run --app-id nest-dapr-test --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test
@@ -49,14 +49,14 @@ describe('DaprActorContext', () => {
       daprContextService.set(context);
       expect(daprContextService.get()).toBe(context);
 
-      const actor1 = daprActorClient.getActor(ContextAwareActorInterface, 'context-1');
+      const actor = daprActorClient.getActor(StatelessCounterActorInterface, 'stateless-2');
 
-      const correlationID = await actor1.run();
-      expect(correlationID).toBe(context.correlationID);
+      const initialValue = await actor.getCounter();
+      expect(initialValue).toBeDefined();
 
-      const actor2 = daprActorClient.getActor(ContextAwareActorInterface, 'context-2');
-      const correlationID2 = await actor2.run();
-      expect(correlationID2).toBe(context.correlationID);
+      await actor.increment();
+      const value = await actor.getCounter();
+      expect(value).toBe(initialValue + 1);
     });
   });
 

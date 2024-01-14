@@ -2,11 +2,11 @@ import { randomUUID } from 'crypto';
 import { AbstractActor, ActorId } from '@dapr/dapr';
 import ActorClientHTTP from '@dapr/dapr/actors/client/ActorClient/ActorClientHTTP';
 import ActorManager from '@dapr/dapr/actors/runtime/ActorManager';
-import { Injectable, Logger, Scope, Type } from '@nestjs/common';
+import { Injectable, Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
-import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { DAPR_CORRELATION_ID_KEY, DaprContextService } from '../dapr-context-service';
 import { DaprModuleActorOptions } from '../dapr.module';
+import { extractContext, resolveDependencies } from './nest.utils';
 
 @Injectable()
 export class NestActorManager {
@@ -17,7 +17,6 @@ export class NestActorManager {
   ) {
     // The original create actor method
     const originalCreateActor = ActorManager.prototype.createActor;
-    const resolveDependencies = this.resolveDependencies;
 
     // We need replace/patch the original createActor method to resolve dependencies from the Nest Dependency Injection container
     ActorManager.prototype.createActor = async function (actorId: ActorId) {
@@ -93,7 +92,7 @@ export class NestActorManager {
           contextService.setIdIfNotDefined();
           // Try to extract the context from the data object
           // This method will remove any context from the data object (destructive)
-          const context = NestActorManager.extractContext(data);
+          const context = extractContext(data);
           // If we have found a context object, set it in the CLS
           if (context) {
             contextService.set(context);
@@ -116,60 +115,6 @@ export class NestActorManager {
         throw error;
       }
     };
-  }
-
-  private async resolveDependencies(moduleRef: ModuleRef, instance: any): Promise<void> {
-    const type = instance.constructor;
-    try {
-      const injector = moduleRef['injector'];
-      const wrapper = new InstanceWrapper({
-        name: type && type.name,
-        metatype: type,
-        isResolved: false,
-        scope: Scope.TRANSIENT,
-        durable: true,
-      });
-
-      const properties = injector.reflectProperties(wrapper.metatype as Type<any>);
-      for (const item of properties) {
-        if ('type' in item && item.type) {
-          const propertyType = item.type as Type<any>;
-          const resolved = await moduleRef.get(propertyType, { strict: false });
-          if (resolved) {
-            instance[item.key] = resolved;
-          }
-        }
-      }
-    } catch (error) {
-      console.error(error);
-      throw error;
-    }
-  }
-  private static extractContext(data: any): any {
-    if (!data) return undefined;
-    // The context object should always be the last item in the array
-    if (Array.isArray(data)) {
-      const lastItem = data[data.length - 1];
-      if (lastItem['$t'] === 'ctx') {
-        // Remove this item from the array
-        data.pop();
-        return lastItem;
-      }
-    }
-    // Perhaps the context is the entire object?
-    if (data['$t'] === 'ctx') {
-      // Copy the context object and remove it from the data object
-      const context = Object.assign({}, data);
-      data = undefined;
-      return context;
-    }
-    // Allow embedding the context as a property
-    if (data['$ctx']) {
-      const context = Object.assign({}, data['$ctx']);
-      data['$ctx'] = undefined;
-      return context;
-    }
-    return undefined;
   }
 }
 

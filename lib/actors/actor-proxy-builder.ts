@@ -2,9 +2,9 @@ import { ActorId, CommunicationProtocolEnum, DaprClient } from '@dapr/dapr';
 import ActorClient from '@dapr/dapr/actors/client/ActorClient/ActorClient';
 import Class from '@dapr/dapr/types/Class';
 import { DaprClientOptions } from '@dapr/dapr/types/DaprClientOptions';
+import { Logger } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { DaprContextService } from '../dapr-context-service';
-import { Logger } from '@nestjs/common';
 
 export class ActorProxyBuilder<T> {
   moduleRef: ModuleRef;

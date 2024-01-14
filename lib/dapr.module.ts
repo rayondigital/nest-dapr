@@ -1,17 +1,6 @@
-import {
-  CommunicationProtocolEnum,
-  DaprClient,
-  DaprPubSubStatusEnum,
-  DaprServer,
-} from '@dapr/dapr';
+import { CommunicationProtocolEnum, DaprClient, DaprPubSubStatusEnum, DaprServer } from '@dapr/dapr';
 import { DaprClientOptions } from '@dapr/dapr/types/DaprClientOptions';
-import {
-  DynamicModule,
-  Module,
-  ModuleMetadata,
-  Provider,
-  Type,
-} from '@nestjs/common';
+import { DynamicModule, Module, ModuleMetadata, Provider, Type } from '@nestjs/common';
 import { DiscoveryModule, Reflector } from '@nestjs/core';
 import { DaprActorClient } from './actors/dapr-actor-client.service';
 import { NestActorManager } from './actors/nest-actor-manager';
@@ -26,14 +15,12 @@ export interface DaprModuleOptions {
   serverPort?: string;
   communicationProtocol?: CommunicationProtocolEnum;
   clientOptions?: DaprClientOptions;
-  onError?: (
-    name: string,
-    topicName: string,
-    error: any,
-  ) => DaprPubSubStatusEnum;
+  onError?: (name: string, topicName: string, error: any) => DaprPubSubStatusEnum;
   actorOptions?: DaprModuleActorOptions;
   disabled?: boolean;
   contextProvider?: DaprContextProvider;
+  runtime?: DaprRuntime;
+  autostart?: boolean;
 }
 
 export interface DaprModuleActorOptions {
@@ -46,6 +33,11 @@ export enum DaprContextProvider {
   None = 'none',
   ALS = 'als',
   NestCLS = 'nest-cls',
+}
+
+export enum DaprRuntime {
+  Default = 'default',
+  Testing = 'testing',
 }
 
 export interface DaprModuleOptionsFactory {
@@ -69,13 +61,10 @@ export function createOptionsProvider(options: DaprModuleOptions): any {
   return { provide: DAPR_MODULE_OPTIONS_TOKEN, useValue: options || {} };
 }
 
-export interface DaprModuleAsyncOptions
-  extends Pick<ModuleMetadata, 'imports'> {
+export interface DaprModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
   useExisting?: Type<DaprModuleOptionsFactory>;
   useClass?: Type<DaprModuleOptionsFactory>;
-  useFactory?: (
-    ...args: any[]
-  ) => Promise<DaprModuleOptions> | DaprModuleOptions;
+  useFactory?: (...args: any[]) => Promise<DaprModuleOptions> | DaprModuleOptions;
   inject?: any[];
   extraProviders?: Provider[];
 }
@@ -124,12 +113,7 @@ export class DaprModule {
         ...this.createAsyncProviders(options),
         {
           provide: DaprServer,
-          useFactory: ({
-            serverHost,
-            serverPort,
-            communicationProtocol,
-            clientOptions,
-          }: DaprModuleOptions) =>
+          useFactory: ({ serverHost, serverPort, communicationProtocol, clientOptions }: DaprModuleOptions) =>
             new DaprServer({
               serverHost,
               serverPort,
@@ -153,9 +137,7 @@ export class DaprModule {
     };
   }
 
-  private static createAsyncProviders(
-    options: DaprModuleAsyncOptions,
-  ): Provider[] {
+  private static createAsyncProviders(options: DaprModuleAsyncOptions): Provider[] {
     if (options.useExisting || options.useFactory) {
       return [this.createAsyncOptionsProvider(options)];
     }
@@ -168,9 +150,7 @@ export class DaprModule {
     ];
   }
 
-  private static createAsyncOptionsProvider(
-    options: DaprModuleAsyncOptions,
-  ): Provider {
+  private static createAsyncOptionsProvider(options: DaprModuleAsyncOptions): Provider {
     if (options.useFactory) {
       return {
         provide: DAPR_MODULE_OPTIONS_TOKEN,
@@ -180,8 +160,7 @@ export class DaprModule {
     }
     return {
       provide: DAPR_MODULE_OPTIONS_TOKEN,
-      useFactory: async (optionsFactory: DaprModuleOptionsFactory) =>
-        optionsFactory.createDaprModuleOptions(),
+      useFactory: async (optionsFactory: DaprModuleOptionsFactory) => optionsFactory.createDaprModuleOptions(),
       inject: [options.useExisting || options.useClass],
     };
   }

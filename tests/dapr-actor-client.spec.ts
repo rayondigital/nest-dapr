@@ -80,5 +80,6 @@ describe('DaprActorClient', () => {
     await app.close();
     await app.getHttpServer().close();
     await daprServer.stop();
+    await testingModule.close();
   });
 });

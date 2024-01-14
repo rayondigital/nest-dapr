@@ -7,7 +7,7 @@ import { CacheService } from '../src/cache.service';
 import { CounterController } from './counter.controller';
 import { ContextAwareActor } from '../src/context-aware.actor';
 import { ClsModule } from 'nestjs-cls';
-import { DaprContextProvider } from '../../lib/dapr.module';
+import { DaprContextProvider, DaprRuntime } from '../../lib/dapr.module';
 
 @Module({
   imports: [
@@ -35,6 +35,8 @@ import { DaprContextProvider } from '../../lib/dapr.module';
           actorScanInterval: '30s',
         },
       },
+      autostart: false,
+      runtime: DaprRuntime.Testing,
       contextProvider: DaprContextProvider.NestCLS,
     }),
   ],

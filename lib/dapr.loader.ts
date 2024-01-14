@@ -9,11 +9,15 @@ import { DaprActorClient } from './actors/dapr-actor-client.service';
 import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
-import { DAPR_MODULE_OPTIONS_TOKEN, DaprContextProvider, DaprModuleOptions } from './dapr.module';
+import { DAPR_MODULE_OPTIONS_TOKEN, DaprRuntime, DaprContextProvider, DaprModuleOptions } from './dapr.module';
+import { TestActorRuntime } from './testing/test-actor-runtime';
 
 @Injectable()
 export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(DaprLoader.name);
+  actorTypes: Map<Type<any> | Function, Type<any> | Function> = new Map();
+  actor: Map<string, string> = new Map();
+  handlers: string[] = [];
 
   constructor(
     private readonly discoveryService: DiscoveryService,
@@ -32,6 +36,13 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     if (this.options.disabled) {
       this.logger.log('Dapr server is disabled');
       return;
+    }
+
+    // If the Dapr runtime has been swapped out, then use it instead
+    // This is useful for internal use testing/mocking
+    if (this.options.runtime === DaprRuntime.Testing) {
+      // There is no interface for the Runtime, so ensure that the types are matching
+      ActorRuntime['instance'] = new TestActorRuntime(this.daprServer.client, this.moduleRef, this.contextService);
     }
 
     // Hook into the Dapr Actor Manager
@@ -54,9 +65,10 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       return;
     }
 
-    this.logger.log('Starting Dapr server');
-    await this.daprServer.start();
-    this.logger.log('Dapr server started');
+    // Only start the server if autostart is enabled or undefined (default)
+    if (this.options.autostart === undefined || this.options.autostart) {
+      await this.start();
+    }
 
     const resRegisteredActors = await this.daprServer.actor.getRegisteredActors();
     if (resRegisteredActors.length > 0) {
@@ -79,6 +91,12 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
         );
       }
     }
+  }
+
+  async start() {
+    this.logger.log('Starting Dapr server');
+    await this.daprServer.start();
+    this.logger.log('Dapr server started');
   }
 
   async onApplicationShutdown() {
@@ -110,6 +128,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       .forEach(async (wrapper: InstanceWrapper) => {
         const { instance } = wrapper;
         const prototype = Object.getPrototypeOf(instance) || {};
+
         this.metadataScanner.scanFromPrototype(instance, prototype, async (methodKey: string) => {
           await this.subscribeToDaprPubSubEventIfListener(instance, methodKey);
           await this.subscribeToDaprBindingEventIfListener(instance, methodKey);
@@ -125,6 +144,9 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     const { name, topicName, route } = daprPubSubMetadata;
 
     this.logger.log(`Subscribing to Dapr: ${name}, Topic: ${topicName}${route ? ' on route ' + route : ''}`);
+
+    this.handlers.push(`${name}-${topicName}`);
+
     await this.daprServer.pubsub.subscribe(
       name,
       topicName,
@@ -177,7 +199,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     // This is useful in scenarios where environments may share the same placement service
     if (this.options.actorOptions?.typeNamePrefix) {
       actorTypeName = this.options.actorOptions.typeNamePrefix + actorTypeName;
-      // Register using a custom actor manager
+      // Register using a custom actor manager, this is required to support the typeNamePrefix option
       try {
         const actorManager = ActorRuntime.getInstanceByDaprClient(this.daprServer.client);
         const managers = actorManager['actorManagers'] as Map<string, ActorManager<any>>;
@@ -200,6 +222,11 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     if (daprActorMetadata.interfaceType) {
       this.daprActorClient.registerInterface(actorType, daprActorMetadata.interfaceType, this.daprServer.client);
     }
+
+    // Store the metadata
+    this.actorTypes.set(actorType, daprActorMetadata.interfaceType ?? actorType);
+    this.actor.set(actorTypeName, interfaceTypeName ?? actorTypeName);
+
     return actorTypeName;
   }
 }
