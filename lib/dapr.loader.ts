@@ -63,8 +63,6 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
 
     await this.daprServer.actor.init();
 
-    this.daprServer.daprServer.getServerImpl();
-
     this.loadDaprHandlers();
 
     // If the dapr server port is 0, then we will assume that the server is not to be started
@@ -147,19 +145,31 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       topicName,
       async (data: any) => {
         try {
-          await instance[methodKey].call(instance, data);
+          // The first argument will be the data.
+          // The method invoked can be a void method or return a DaprPubSubStatusEnum value
+          const result = await instance[methodKey].call(instance, data);
+          // If the result is a DaprPubSubStatusEnum then return it, otherwise assume success
+          if (result && result in DaprPubSubStatusEnum) {
+            return result;
+          }
+          // If no exception has occurred, then return success
+          return DaprPubSubStatusEnum.SUCCESS;
         } catch (err) {
-          if (this.options.onError) {
-            const response = this.options.onError(name, topicName, err);
+          this.logger.error(err, `Error in pubsub handler ${topicName}`);
+          // If there is an error handler then use it.
+          if (this.options.onPubSubError) {
+            const response = this.options.onPubSubError(name, topicName, err);
             if (response == DaprPubSubStatusEnum.RETRY) {
-              this.logger.debug('Retrying pubsub handler operation');
+              this.logger.log(`Retrying pubsub handler ${topicName} operation`);
             } else if (response == DaprPubSubStatusEnum.DROP) {
-              this.logger.debug('Dropping message');
+              this.logger.debug(`Dropping message from ${topicName}`);
             }
             return response;
           }
+          // The safest default return type is retry.
+          this.logger.log(`Retrying pubsub handler ${topicName} operation`);
+          return DaprPubSubStatusEnum.RETRY;
         }
-        return DaprPubSubStatusEnum.SUCCESS;
       },
       route,
     );
