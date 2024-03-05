@@ -9,6 +9,7 @@ import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprLoader } from './dapr.loader';
+import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 
 export const DAPR_MODULE_OPTIONS_TOKEN = 'DAPR_MODULE_OPTIONS_TOKEN';
 
@@ -17,8 +18,8 @@ export interface DaprModuleOptions {
   serverPort?: string;
   communicationProtocol?: CommunicationProtocolEnum;
   clientOptions?: DaprClientOptions;
-  onPubSubError?: (name: string, topicName: string, error: any) => DaprPubSubStatusEnum;
   actorOptions?: DaprModuleActorOptions;
+  pubsubOptions?: DaprModulePubSubOptions;
   disabled?: boolean;
   contextProvider?: DaprContextProvider;
   catchErrors?: boolean;
@@ -29,6 +30,11 @@ export interface DaprModuleActorOptions {
   delimiter?: string;
   typeNamePrefix?: string;
   allowInternalCalls?: boolean; // Allow actors to call internally within the same process
+}
+
+export interface DaprModulePubSubOptions {
+  defaultName?: string;
+  onError?: (name: string, topicName: string, error: any) => DaprPubSubStatusEnum;
 }
 
 export enum DaprContextProvider {
@@ -98,9 +104,11 @@ export class DaprModule {
         DaprLoader,
         DaprMetadataAccessor,
         DaprContextService,
+        DaprActorClient,
+        DaprPubSubClient,
         Reflector,
       ],
-      exports: [DaprClient],
+      exports: [DaprClient, DaprPubSubClient, DaprContextService, ActorRuntimeService, DaprActorClient],
     };
   }
 
@@ -132,10 +140,12 @@ export class DaprModule {
         DaprLoader,
         DaprMetadataAccessor,
         DaprContextService,
+        DaprActorClient,
+        DaprPubSubClient,
         Reflector,
         ...(options.extraProviders || []),
       ],
-      exports: [DaprClient],
+      exports: [DaprClient, DaprPubSubClient, DaprContextService, ActorRuntimeService, DaprActorClient],
     };
   }
 

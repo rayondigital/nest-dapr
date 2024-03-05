@@ -10,6 +10,7 @@ import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DAPR_MODULE_OPTIONS_TOKEN, DaprContextProvider, DaprModuleOptions } from './dapr.module';
+import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 
 @Injectable()
 export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -25,6 +26,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly daprActorClient: DaprActorClient,
     private readonly moduleRef: ModuleRef,
     private readonly contextService: DaprContextService,
+    private readonly pubSubClient: DaprPubSubClient,
     private readonly actorManager: NestActorManager,
   ) {}
 
@@ -42,6 +44,10 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     }
     if (this.options.clientOptions?.actor?.reentrancy?.enabled) {
       this.actorManager.setupReentrancy();
+    }
+
+    if (this.options.pubsubOptions?.defaultName) {
+      this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
     }
 
     // Setup the actor client (based on the options provided)
@@ -137,7 +143,8 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     if (!daprPubSubMetadata) {
       return;
     }
-    const { name, topicName, route } = daprPubSubMetadata;
+    const name = daprPubSubMetadata.name ?? this.options.pubsubOptions?.defaultName;
+    const { topicName, route } = daprPubSubMetadata;
 
     this.logger.log(`Subscribing to Dapr: ${name}, Topic: ${topicName}${route ? ' on route ' + route : ''}`);
     await this.daprServer.pubsub.subscribe(
@@ -157,8 +164,8 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
         } catch (err) {
           this.logger.error(err, `Error in pubsub handler ${topicName}`);
           // If there is an error handler then use it.
-          if (this.options.onPubSubError) {
-            const response = this.options.onPubSubError(name, topicName, err);
+          if (this.options.pubsubOptions?.onError) {
+            const response = this.options.pubsubOptions?.onError(name, topicName, err);
             if (response == DaprPubSubStatusEnum.RETRY) {
               this.logger.log(`Retrying pubsub handler ${topicName} operation`);
             } else if (response == DaprPubSubStatusEnum.DROP) {
