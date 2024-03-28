@@ -10,6 +10,7 @@ import {
   DAPR_ACTOR_METADATA,
   DAPR_ACTOR_STATE_METADATA,
 } from './constants';
+import { DaprActorOnEvent } from './dapr-actor-on-event.decorator';
 import { State } from './dapr-actor-state.decorator';
 import { DaprActor, DaprActorMetadata } from './dapr-actor.decorator';
 import { DaprBinding, DaprBindingMetadata } from './dapr-binding.decorator';
@@ -47,4 +48,5 @@ export {
   StatefulActorOf,
   IState,
   SerializableError,
+  DaprActorOnEvent,
 };
