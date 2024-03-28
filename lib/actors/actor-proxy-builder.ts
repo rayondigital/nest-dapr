@@ -106,10 +106,10 @@ export class ActorProxyBuilder<T> {
       throw new Error('Actor id must be provided');
     }
     const originalBody = args.length > 0 ? args : null;
-    // As we are invoking this method via the sidecar we want to prepare the body and inject it with any context/correlation ID
-    const body = await this.prepareBody(this.daprContextService, args, originalBody);
     // Either get the correlation ID from the context or generate a new one
     const correlationId = this.daprContextService.getCorrelationId(true);
+    // As we are invoking this method via the sidecar we want to prepare the body and inject it with any context/correlation ID
+    const body = await this.prepareBody(this.daprContextService, args, originalBody);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
     return await this.actorClient.actor.invoke(actorTypeClassName, actorId, methodName, body, correlationId);

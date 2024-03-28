@@ -31,7 +31,9 @@ export class DaprContextService {
     const byKey = this.getByKey<string>(DAPR_CORRELATION_ID_KEY);
     if (byKey) return byKey;
     const context = this.get<any>();
-    if (context) return context[DAPR_CORRELATION_ID_KEY];
+    if (context && context[DAPR_CORRELATION_ID_KEY]) {
+      return context[DAPR_CORRELATION_ID_KEY];
+    }
     if (createIfNotDefined) return this.setCorrelationIdIfNotDefined();
     return undefined;
   }

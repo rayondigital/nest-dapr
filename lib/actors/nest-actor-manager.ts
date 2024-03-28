@@ -84,6 +84,7 @@ export class NestActorManager {
         body,
         headers: {
           'Dapr-Reentrancy-Id': reentrancyId ?? randomUUID(),
+          'X-Correlation-ID': reentrancyId,
         },
       });
       return result as object;
