@@ -108,11 +108,12 @@ export class ActorProxyBuilder<T> {
     const originalBody = args.length > 0 ? args : null;
     // Either get the correlation ID from the context or generate a new one
     const correlationId = this.daprContextService.getCorrelationId(true);
+    const traceId = this.daprContextService.getTraceId(true);
     // As we are invoking this method via the sidecar we want to prepare the body and inject it with any context/correlation ID
     const body = await this.prepareBody(this.daprContextService, args, originalBody);
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return await this.actorClient.actor.invoke(actorTypeClassName, actorId, methodName, body, correlationId);
+    return await this.actorClient.actor.invoke(actorTypeClassName, actorId, methodName, body, correlationId, traceId);
   }
 
   private async prepareBody(daprContextService: DaprContextService, args: any[], body: any): Promise<any> {
