@@ -148,7 +148,7 @@ export class NestActorManager {
               // Attempt to set the traceparent from the context
               const traceId = context[DAPR_TRACE_ID_KEY];
               if (traceId) {
-                contextService.setTraceId(correlationId);
+                contextService.setTraceId(traceId);
               }
             }
 

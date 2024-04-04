@@ -103,6 +103,10 @@ export class DaprContextService {
       if (!contextObject[DAPR_CORRELATION_ID_KEY]) {
         contextObject[DAPR_CORRELATION_ID_KEY] = this.getByKey<string>(DAPR_CORRELATION_ID_KEY);
       }
+      // Add the trace ID if it's not already set
+      if (!contextObject[DAPR_TRACE_ID_KEY]) {
+        contextObject[DAPR_TRACE_ID_KEY] = this.getByKey<string>(DAPR_TRACE_ID_KEY);
+      }
       return contextObject;
     } catch (error) {
       // We don't want to throw an error if the context is not set.

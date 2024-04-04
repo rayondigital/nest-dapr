@@ -1,6 +1,6 @@
 {
   "name": "@rayondigital/nest-dapr",
-  "version": "0.9.60",
+  "version": "0.9.61",
   "description": "Develop NestJs microservices using Dapr pubsub, actors and other bindings",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -24,9 +24,12 @@
   "peerDependencies": {
     "@nestjs/common": "^10.0.0",
     "@nestjs/core": "^10.0.0",
+    "@opentelemetry/api": "^1.0.0",
+    "@opentelemetry/core": "^1.0.0",
+    "@opentelemetry/sdk-trace-base": "^1.0.0",
+    "eventemitter2": "^6.0.0",
     "nestjs-cls": "^3.4.0",
-    "rxjs": "^7.1.0",
-    "eventemitter2": "^6.0.0"
+    "rxjs": "^7.1.0"
   },
   "dependencies": {
     "@dapr/dapr": "^3.3.1",
@@ -35,6 +38,9 @@
   "devDependencies": {
     "@nestjs/platform-express": "^10.0.0",
     "@nestjs/testing": "^10.0.0",
+    "@opentelemetry/auto-instrumentations-node": "^0.44.0",
+    "@opentelemetry/exporter-trace-otlp-http": "^0.50.0",
+    "@opentelemetry/sdk-trace-node": "^1.23.0",
     "@types/jest": "^29.5.12",
     "@typescript-eslint/eslint-plugin": "^5.29.0",
     "eslint": "^8.4.1",

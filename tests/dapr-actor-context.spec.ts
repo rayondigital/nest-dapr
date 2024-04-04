@@ -41,6 +41,7 @@ describe('DaprActorContext', () => {
   describe('callContextAwareActor', () => {
     itWithContext('should call a context aware actor', contextService, async () => {
       daprContextService.setCorrelationIdIfNotDefined();
+      daprContextService.setTraceIdIfNotDefined();
       let context = {
         correlationID: daprContextService.getCorrelationId(),
         userID: 'user-1',
