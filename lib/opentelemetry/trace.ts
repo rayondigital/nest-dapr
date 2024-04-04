@@ -9,9 +9,14 @@ export async function withTracedContext<T>(
   spanAttributes: Attributes = undefined,
   tracerName = 'nest-dapr',
 ): Promise<T> {
-  const tracer = trace.getTracer(tracerName);
+  // If there is no trace provider, execute the operation without tracing.
+  if (!trace || !context) {
+    return await operation();
+  }
 
+  const tracer = trace.getTracer(tracerName);
   const activeContext = context.active();
+  // If there is no active context, execute the operation without tracing.
   if (!activeContext) {
     return await operation();
   }
