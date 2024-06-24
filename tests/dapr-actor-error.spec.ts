@@ -4,6 +4,7 @@ import { DaprClient, DaprServer } from '@dapr/dapr';
 import { INestApplication } from '@nestjs/common';
 import { StatelessCounterActorInterface } from './src/stateless-counter.actor';
 import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
+import { SerializableError } from '../lib';
 
 // To run inside Dapr use:
 // dapr run --app-id nest-dapr --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test
@@ -32,17 +33,26 @@ describe('DaprActor', () => {
   describe('callActor', () => {
     it('should call an actor and return a serializable error', async () => {
       const actor = daprActorClient.getActor(StatelessCounterActorInterface, 'stateless-1');
-      const initialValue: any = await actor.throwSerializableError();
-      expect(initialValue).toBeDefined();
-      expect(initialValue.message).toBe('This is a serializable error');
+      let error: SerializableError;
+      try {
+        await actor.throwSerializableError();
+      } catch (e) {
+        error = e;
+      }
+      expect(error).toBeDefined();
+      expect(error).toBeInstanceOf(SerializableError);
+      expect(error.message).toContain('This is a serializable error');
+      expect(error.statusCode).toBe(400);
     });
 
     it('should call an actor and it should throw an error', async () => {
       const actor = daprActorClient.getActor(StatelessCounterActorInterface, 'stateless-1');
       try {
-        const initialValue = await actor.throwError();
+        await actor.throwError();
       } catch (error) {
         expect(error).toBeDefined();
+        expect(error.message).toBeDefined();
+        expect(error.message).toContain('error from actor service');
       }
     });
   });

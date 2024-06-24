@@ -8,10 +8,18 @@ import { CqrsModule } from '@nestjs/cqrs';
 import { CounterModule } from './counter/counter.module';
 import { ActorModule } from './actors/actor.module';
 import { MediatorModule } from './mediator/mediator.module';
-import { DaprContextProvider } from '../../../lib/dapr.module';
+import { ClsModule } from 'nestjs-cls';
+import { PubSubReceiverService } from './pubsub.service';
 
 @Module({
   imports: [
+    ClsModule.forRoot({
+      middleware: {
+        mount: true,
+        generateId: true,
+      },
+      global: true,
+    }),
     CqrsModule.forRoot(),
     ConfigModule.forRoot({
       isGlobal: true,
@@ -37,20 +45,21 @@ import { DaprContextProvider } from '../../../lib/dapr.module';
               actorIdleTimeout: '1m',
               actorScanInterval: '30s',
             },
-            contextProvider: DaprContextProvider.NestCLS,
+            contextProvider: 'nest-cls',
           },
           communicationProtocol:
             configService.get('DAPR_COMMUNICATION_PROTOCOL') ??
             CommunicationProtocolEnum.HTTP,
         };
       },
-      imports: [],
+      imports: [ClsModule],
       inject: [ConfigService],
     }),
     MediatorModule,
     ActorModule,
     CounterModule,
   ],
+  providers: [PubSubReceiverService],
   controllers: [PubsubController, CounterController],
 })
 export class AppModule {}

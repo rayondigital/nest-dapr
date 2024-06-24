@@ -37,12 +37,12 @@ export class StatelessCounterActor extends AbstractActor implements StatelessCou
   }
 
   async throwSerializableError(): Promise<void> {
-    // This will result in HTTP 400
-    throw new SerializableError('This is a serializable error', 400);
+    // This will result in HTTP 400 (Bad Request) and will propagate to the client
+    throw new SerializableError('This is a serializable error. This should propagate to the client side.', 400);
   }
 
   async throwError(): Promise<void> {
-    // This will result in HTTP 500
-    throw new Error('This is a non-serializable error');
+    // This will result in HTTP 500 (Internal Server Error)
+    throw new Error('This is a non-serializable error. This will occur on the server side.');
   }
 }

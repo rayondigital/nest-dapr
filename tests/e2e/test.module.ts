@@ -53,7 +53,7 @@ registerTracerProvider('http://localhost:4318/v1/traces');
         },
       },
       actorOptions: {
-        allowInternalCalls: true,
+        allowInternalCalls: false,
       },
       logging: {
         enabled: true,

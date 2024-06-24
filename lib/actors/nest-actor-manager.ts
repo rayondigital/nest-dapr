@@ -190,11 +190,10 @@ export class NestActorManager {
     // eslint-disable-next-line
     // @ts-ignore
     HTTPServerActor.prototype.handlerMethod = async function (req: any, res: any) {
-      const { actorTypeName, actorId, methodName } = req.params;
-      const body = req.body;
-
-      const dataSerialized = this.serializer.serialize(body);
       try {
+        const { actorTypeName, actorId, methodName } = req.params;
+        const body = req.body;
+        const dataSerialized = this.serializer.serialize(body);
         const result = await ActorRuntime.getInstance(this.client.daprClient).invoke(
           actorTypeName,
           actorId,
