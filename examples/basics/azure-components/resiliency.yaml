@@ -1,0 +1,22 @@
+apiVersion: dapr.io/v1alpha1
+kind: Resiliency
+metadata:
+  name: resiliency
+spec:
+  policies:
+    retries:
+      pubsubRetry:
+        policy: constant
+        duration: 1s
+        maxRetries: 5
+  targets:
+    components:
+      pubsub:
+        inbound:
+          retry: pubsubRetry
+      eventhub-pubsub:
+        inbound:
+          retry: pubsubRetry
+      azure-eventhub-pubsub:
+        inbound:
+          retry: pubsubRetry

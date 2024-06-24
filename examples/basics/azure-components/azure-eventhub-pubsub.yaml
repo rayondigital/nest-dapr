@@ -1,0 +1,27 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: eventhub-pubsub
+spec:
+  type: pubsub.azure.eventhubs
+  version: v1
+  metadata:
+    - name: connectionString
+      value: "Endpoint=sb://eh-rayon-sandbox.servicebus.windows.net/;SharedAccessKeyName=dapr;SharedAccessKey=TEST"
+    - name: consumerGroup
+      value: "$Default"
+    - name: storageAccountName
+      value: "sttest"
+    - name: storageAccountKey
+      value: "TEST"
+    - name: storageContainerName
+      value: "pubsub"
+
+    - name: resourceGroupName
+      value: "rg-test"
+    - name: subscriptionID
+      value: "TEST"
+    - name: partitionCount
+      value: "8"
+    - name: messageRetentionInDays
+      value: "7"
