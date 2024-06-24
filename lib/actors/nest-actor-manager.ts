@@ -8,7 +8,7 @@ import HTTPServerActor from '@dapr/dapr/implementation/Server/HTTPServer/actor';
 import { Injectable, Logger, Scope, Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
-import { DAPR_CORRELATION_ID_KEY, DaprContextService } from '../dapr-context-service';
+import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY, DaprContextService } from '../dapr-context-service';
 import { DaprModuleOptions } from '../dapr.module';
 import { SerializableError } from './serializable-error';
 
@@ -77,13 +77,16 @@ export class NestActorManager {
       methodName: string,
       body: any,
       reentrancyId?: string,
+      traceParent?: string,
     ) {
       const urlSafeId = actorId.getURLSafeId();
       const result = await this.client.execute(`/actors/${actorType}/${urlSafeId}/method/${methodName}`, {
         method: 'POST', // we always use POST calls for Invoking (ref: https://github.com/dapr/js-sdk/pull/137#discussion_r772636068)
         body,
         headers: {
-          'Dapr-Reentrancy-Id': reentrancyId ?? randomUUID(),
+          'Dapr-Reentrancy-Id': reentrancyId ?? traceParent ?? randomUUID(),
+          'X-Correlation-ID': reentrancyId,
+          traceparent: traceParent,
         },
       });
       return result as object;
@@ -141,6 +144,11 @@ export class NestActorManager {
               const correlationId = context[DAPR_CORRELATION_ID_KEY] ?? randomUUID();
               if (correlationId) {
                 contextService.setCorrelationId(correlationId);
+              }
+              // Attempt to set the traceparent from the context
+              const traceId = context[DAPR_TRACE_ID_KEY];
+              if (traceId) {
+                contextService.setTraceId(traceId);
               }
             }
 
