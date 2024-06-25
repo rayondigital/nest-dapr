@@ -13,6 +13,10 @@ export interface DaprActorMetadata {
    * Name of actor.
    */
   name?: string;
+  /**
+   * Name of actor used by State Manager.
+   */
+  stateName?: string;
 }
 
 /**
@@ -25,8 +29,13 @@ export function DaprActor(options: DaprActorMetadata): ClassDecorator {
   return (target) => {
     SetMetadata(DAPR_ACTOR_METADATA, {
       name: options.name ?? target.constructor.name,
+      stateName: options.stateName,
       interfaceType: options.interfaceType,
     })(target);
     Injectable({ scope: Scope.TRANSIENT })(target); // All actors are transient
   };
+}
+
+export function getActorMetadata(target: Type<any>): DaprActorMetadata {
+  return Reflect.getMetadata(DAPR_ACTOR_METADATA, target);
 }

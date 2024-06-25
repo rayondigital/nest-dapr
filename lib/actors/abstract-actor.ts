@@ -1,7 +1,7 @@
+import * as DaprAbstractActor from '@dapr/dapr/actors/runtime/AbstractActor';
 import ActorId from '@dapr/dapr/actors/ActorId';
 import ActorClient from '@dapr/dapr/actors/client/ActorClient/ActorClient';
 import ActorStateManager from '@dapr/dapr/actors/runtime/ActorStateManager';
-import * as DaprAbstractActor from '@dapr/dapr/actors/runtime/AbstractActor';
 import StateProvider from '@dapr/dapr/actors/runtime/StateProvider';
 import DaprClient from '@dapr/dapr/implementation/Client/DaprClient';
 import { Logger } from '@dapr/dapr/logger/Logger';
@@ -35,6 +35,7 @@ export abstract class AbstractActor {
   private readonly actorClient: ActorClient;
   private readonly daprStateProvider: StateProvider;
   private readonly actorType: any; // set at constructor level
+  private readonly stateName: any; // set at constructor level (used by the state manager)
   private readonly daprLogger: Logger;
 
   /**
@@ -44,14 +45,14 @@ export abstract class AbstractActor {
    * @param id actor identifier
    */
   constructor(daprClient: DaprClient, id: ActorId) {
+    this.actorType = this.constructor.name;
+    this.stateName = this.constructor.name;
     this.daprClient = daprClient;
     this.actorClient = DaprClientCache.getOrCreateActorClientFromOptions(daprClient.options);
     this.daprLogger = new Logger('Actors', 'AbstractActor', daprClient.options.logger);
     this.id = id;
     this.stateManager = new ActorStateManager(this as unknown as DaprAbstractActor.default);
     this.daprStateProvider = DaprClientCache.getOrCreateStateProviderFromOptions(daprClient.options);
-    // Interesting one: get the Class Type of the child
-    this.actorType = this.constructor.name;
   }
 
   /**
@@ -231,7 +232,7 @@ export abstract class AbstractActor {
   }
 
   getActorType(): any {
-    return this.actorType;
+    return this.stateName ?? this.actorType;
   }
 
   getId(): string {
