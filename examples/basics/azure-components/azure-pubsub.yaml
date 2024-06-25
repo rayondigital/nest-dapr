@@ -1,0 +1,22 @@
+apiVersion: dapr.io/v1alpha1
+kind: Component
+metadata:
+  name: pubsub
+spec:
+  type: pubsub.azure.servicebus.topics
+  version: v1
+  metadata:
+    - name: connectionString
+      value: "Endpoint=sb://sb-rayon-sandbox.servicebus.windows.net/;SharedAccessKeyName=Dapr;SharedAccessKey=TEST"
+    - name: maxDeliveryCount
+      value: 10
+    - name: timeoutInSec
+      value: 30
+    - name: handlerTimeoutInSec
+      value: 30
+    - name: maxConcurrentHandlers
+      value: 10
+    - name: maxActiveMessages
+      value: 100
+    - name: publishMaxRetries
+      value: 10

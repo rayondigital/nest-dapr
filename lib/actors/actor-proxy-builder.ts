@@ -1,3 +1,4 @@
+// @ts-nocheck
 import { ActorId, CommunicationProtocolEnum, DaprClient } from '@dapr/dapr';
 import ActorClient from '@dapr/dapr/actors/client/ActorClient/ActorClient';
 import Class from '@dapr/dapr/types/Class';
@@ -7,6 +8,7 @@ import { ModuleRef } from '@nestjs/core';
 import { DaprContextService } from '../dapr-context-service';
 import { ActorRuntimeService } from './actor-runtime.service';
 import { DaprClientCache } from './client-cache';
+import { SerializableError } from './serializable-error';
 
 export class ActorProxyBuilder<T> {
   moduleRef: ModuleRef;
@@ -51,6 +53,9 @@ export class ActorProxyBuilder<T> {
   }
 
   build(actorId: ActorId, actorTypeName?: string): T {
+    if (actorId === undefined) {
+      throw new Error('Actor id must be provided');
+    }
     const actorTypeClassName = actorTypeName ?? this.actorTypeClass.name;
 
     const handler = {
@@ -90,7 +95,11 @@ export class ActorProxyBuilder<T> {
   ): Promise<any> {
     const actorManager = this.actorRuntimeService.getActorManager(actorTypeClassName);
     const requestBody = JSON.stringify(args);
-    return await actorManager.invoke(actorId, methodName, Buffer.from(requestBody));
+    const result = await actorManager.invoke(actorId, methodName, Buffer.from(requestBody));
+    if (SerializableError.isSerializableError(result)) {
+      throw SerializableError.fromJSON(result);
+    }
+    return result;
   }
 
   private async callExternalActorMethod(
@@ -99,14 +108,34 @@ export class ActorProxyBuilder<T> {
     methodName: string,
     args: any[],
   ): Promise<any> {
+    if (actorId === undefined) {
+      throw new Error('Actor id must be provided');
+    }
     const originalBody = args.length > 0 ? args : null;
-    // As we are invoking this method via the sidecar we want to prepare the body and inject it with any context/correlation ID
-    const body = await this.prepareBody(this.daprContextService, args, originalBody);
     // Either get the correlation ID from the context or generate a new one
     const correlationId = this.daprContextService.getCorrelationId(true);
+    const traceId = this.daprContextService.getTraceId(true);
+    // As we are invoking this method via the sidecar we want to prepare the body and inject it with any context/correlation ID
+    const body = await this.prepareBody(this.daprContextService, args, originalBody);
+
     // eslint-disable-next-line @typescript-eslint/ban-ts-comment
     // @ts-ignore
-    return await this.actorClient.actor.invoke(actorTypeClassName, actorId, methodName, body, correlationId);
+    const result = await this.actorClient.actor.invoke(
+      actorTypeClassName,
+      actorId,
+      methodName,
+      body,
+      correlationId,
+      traceId,
+    );
+
+    if (SerializableError.isSerializableError(result)) {
+      const error = SerializableError.fromJSON(result);
+      error.correlationId = correlationId;
+      error.traceId = traceId;
+      throw error;
+    }
+    return result;
   }
 
   private async prepareBody(daprContextService: DaprContextService, args: any[], body: any): Promise<any> {

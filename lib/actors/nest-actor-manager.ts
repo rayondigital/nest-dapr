@@ -2,19 +2,26 @@ import { randomUUID } from 'crypto';
 import { AbstractActor, ActorId } from '@dapr/dapr';
 import ActorClientHTTP from '@dapr/dapr/actors/client/ActorClient/ActorClientHTTP';
 import ActorManager from '@dapr/dapr/actors/runtime/ActorManager';
+import ActorRuntime from '@dapr/dapr/actors/runtime/ActorRuntime';
+import HttpStatusCode from '@dapr/dapr/enum/HttpStatusCode.enum';
+import HTTPServerActor from '@dapr/dapr/implementation/Server/HTTPServer/actor';
 import { Injectable, Logger, Scope, Type } from '@nestjs/common';
 import { ModuleRef } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
-import { DAPR_CORRELATION_ID_KEY, DaprContextService } from '../dapr-context-service';
-import { DaprModuleActorOptions } from '../dapr.module';
+import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY, DaprContextService } from '../dapr-context-service';
+import { DaprModuleOptions } from '../dapr.module';
+import { SerializableError } from './serializable-error';
 
 @Injectable()
 export class NestActorManager {
   setup(
     moduleRef: ModuleRef,
-    options: DaprModuleActorOptions,
+    options: DaprModuleOptions,
     onActivateFn?: (actorId: ActorId, instance: AbstractActor) => Promise<void>,
   ) {
+    // Logging is enabled by default
+    const isLoggingEnabled = options?.logging?.enabled ?? true;
+
     // The original create actor method
     const originalCreateActor = ActorManager.prototype.createActor;
     const resolveDependencies = this.resolveDependencies;
@@ -23,12 +30,17 @@ export class NestActorManager {
     ActorManager.prototype.createActor = async function (actorId: ActorId) {
       // Call the original createActor method
       const instance = (await originalCreateActor.bind(this)(actorId)) as AbstractActor;
-      if (options?.typeNamePrefix) {
+      if (options?.actorOptions?.typeNamePrefix) {
         // This is where we override the Actor Type Name at runtime
         // This means it may differ from the instance/ctor name.
         // eslint-disable-next-line @typescript-eslint/ban-ts-comment
         // @ts-ignore
         instance['actorType'] = `${options.typeNamePrefix}${instance.actorType}`;
+      }
+
+      if (isLoggingEnabled) {
+        const actorTypeName = this.actorCls.name ?? instance.constructor.name;
+        Logger.verbose(`Activating actor ${actorId}`, actorTypeName);
       }
 
       // Attempt to resolve dependencies from the Nest Dependency Injection container
@@ -38,30 +50,25 @@ export class NestActorManager {
           await onActivateFn(actorId, instance);
         }
       } catch (error) {
-        console.error(error);
+        Logger.error(error);
+        if (error.stack) {
+          Logger.error(error.stack);
+        }
         throw error;
       }
       return instance;
     };
 
-    // Prevent deactive from throwing an unhandled exception
-    const originalDeactivateActor = ActorManager.prototype.deactivateActor;
-    ActorManager.prototype.deactivateActor = async function (actorId: ActorId) {
-      try {
-        // If the actor is not known to this server then just return without error
-        // There is no need to throw an error here
-        if (!this.actors.has(actorId.getId())) {
-          return;
-        }
-        await originalDeactivateActor.bind(this)(actorId);
-      } catch (error) {
-        Logger.error(`Error deactivating actor ${actorId}`);
-        Logger.error(error);
-      }
-    };
+    // Patch existing methods to ensure they do not allow the main host to crash with an unhandled exception
+    this.patchDeactivate(options);
+    this.patchToSupportSerializableError(options);
+    if (isLoggingEnabled) {
+      // Catch and log any unhandled exceptions
+      this.catchAndLogUnhandledExceptions();
+    }
   }
 
-  setupReentrancy() {
+  setupReentrancy(options: DaprModuleOptions) {
     // Here we are patching the ActorClientHTTP to support reentrancy using the `Dapr-Reentrancy-Id` header
     // All subsequent calls in a request chain must use the same correlation/reentrancy ID for the reentrancy to work
     ActorClientHTTP.prototype.invoke = async function (
@@ -70,13 +77,16 @@ export class NestActorManager {
       methodName: string,
       body: any,
       reentrancyId?: string,
+      traceParent?: string,
     ) {
-      const urlSafeId = encodeURIComponent(actorId.getId());
+      const urlSafeId = actorId.getURLSafeId();
       const result = await this.client.execute(`/actors/${actorType}/${urlSafeId}/method/${methodName}`, {
         method: 'POST', // we always use POST calls for Invoking (ref: https://github.com/dapr/js-sdk/pull/137#discussion_r772636068)
         body,
         headers: {
-          'Dapr-Reentrancy-Id': reentrancyId,
+          'Dapr-Reentrancy-Id': reentrancyId ?? traceParent ?? randomUUID(),
+          'X-Correlation-ID': reentrancyId,
+          traceparent: traceParent,
         },
       });
       return result as object;
@@ -84,6 +94,7 @@ export class NestActorManager {
   }
 
   setupCSLWrapper(
+    options: DaprModuleOptions,
     contextService: DaprContextService,
     invokeWrapperFn?: (
       actorId: ActorId,
@@ -98,6 +109,9 @@ export class NestActorManager {
       throw new Error(`Unable to resolve a CLS from the NestJS DI container`);
     }
 
+    // Logging is enabled by default
+    const isLoggingEnabled = options?.logging?.enabled ?? true;
+
     // The original invoke actor method call
     const originalCallActor = ActorManager.prototype.callActorMethod;
 
@@ -105,6 +119,11 @@ export class NestActorManager {
     ActorManager.prototype.callActorMethod = async function (actorId: ActorId, methodName: string, data: any) {
       // Try catch, log and rethrow any errors
       try {
+        if (isLoggingEnabled) {
+          const actorTypeName = this.actorCls.name;
+          Logger.verbose(`Invoking ${actorId}/${methodName}`, actorTypeName);
+        }
+
         if (clsService.isActive()) {
           if (invokeWrapperFn) {
             return await invokeWrapperFn(actorId, methodName, data, originalCallActor.bind(this));
@@ -126,6 +145,11 @@ export class NestActorManager {
               if (correlationId) {
                 contextService.setCorrelationId(correlationId);
               }
+              // Attempt to set the traceparent from the context
+              const traceId = context[DAPR_TRACE_ID_KEY];
+              if (traceId) {
+                contextService.setTraceId(traceId);
+              }
             }
 
             if (invokeWrapperFn) {
@@ -138,7 +162,84 @@ export class NestActorManager {
       } catch (error) {
         Logger.error(`Error invoking actor method ${actorId}/${methodName}`);
         Logger.error(error);
+        if (error.stack) {
+          Logger.error(error.stack);
+        }
         throw error;
+      }
+    };
+  }
+
+  private catchAndLogUnhandledExceptions() {
+    // Handle uncaught exceptions
+    process.on('uncaughtException', (err) => {
+      console.error('Unhandled Exception:', err);
+    });
+    // Handle unhandled promise rejections
+    process.on('unhandledRejection', (reason, promise) => {
+      console.error('Unhandled Rejection at:', promise, 'reason:', reason);
+    });
+  }
+
+  private patchToSupportSerializableError(options: DaprModuleOptions) {
+    // eslint-disable-next-line
+    // @ts-ignore
+    const originalHandlerMethod = HTTPServerActor.prototype.handlerMethod;
+    if (!originalHandlerMethod) return;
+
+    // eslint-disable-next-line
+    // @ts-ignore
+    HTTPServerActor.prototype.handlerMethod = async function (req: any, res: any) {
+      try {
+        const { actorTypeName, actorId, methodName } = req.params;
+        const body = req.body;
+        const dataSerialized = this.serializer.serialize(body);
+        const result = await ActorRuntime.getInstance(this.client.daprClient).invoke(
+          actorTypeName,
+          actorId,
+          methodName,
+          dataSerialized,
+        );
+        res.statusCode = HttpStatusCode.OK;
+        return this.handleResult(res, result);
+      } catch (error) {
+        if (error instanceof SerializableError) {
+          // The serializable error should contain the status code or default to 400
+          error.statusCode = error.statusCode ?? HttpStatusCode.BAD_REQUEST;
+        } else if (error instanceof Error) {
+          res.statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+        }
+        return this.handleResult(res, error);
+      }
+    };
+  }
+
+  private patchDeactivate(options: DaprModuleOptions) {
+    // Prevent deactivate from throwing an unhandled exception when the actor is not known to this server
+    const isLoggingEnabled = options?.logging?.enabled ?? true;
+
+    const originalDeactivateActor = ActorManager.prototype.deactivateActor;
+    if (!originalDeactivateActor) return;
+
+    ActorManager.prototype.deactivateActor = async function (actorId: ActorId) {
+      try {
+        // If the actor is not known to this server then just return without error
+        // There is no need to throw an error here
+        if (!this.actors.has(actorId.getId())) {
+          return;
+        }
+        await originalDeactivateActor.bind(this)(actorId);
+
+        if (isLoggingEnabled) {
+          const actorTypeName = this.actorCls.name;
+          Logger.verbose(`Deactivating actor ${actorId}`, actorTypeName);
+        }
+      } catch (error) {
+        Logger.error(`Error deactivating actor ${actorId}`);
+        Logger.error(error);
+        if (error.stack) {
+          Logger.error(error.stack);
+        }
       }
     };
   }
@@ -166,7 +267,10 @@ export class NestActorManager {
         }
       }
     } catch (error) {
-      console.error(error);
+      Logger.error(error);
+      if (error.stack) {
+        Logger.error(error.stack);
+      }
       throw error;
     }
   }
@@ -197,7 +301,7 @@ export class NestActorManager {
       }
       return undefined;
     } catch (error) {
-      console.error(error);
+      Logger.error(error);
       return undefined;
     }
   }

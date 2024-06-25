@@ -1,13 +1,12 @@
 apiVersion: dapr.io/v1alpha1
 kind: Component
 metadata:
-  name: redis-pubsub
-  namespace: default
+  name: pubsub
 spec:
   type: pubsub.redis
   version: v1
   metadata:
     - name: redisHost
-      value: redis:6379
+      value: localhost:6379
     - name: redisPassword
       value: ''

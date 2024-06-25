@@ -10,6 +10,7 @@ import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DAPR_MODULE_OPTIONS_TOKEN, DaprContextProvider, DaprModuleOptions } from './dapr.module';
+import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 
 @Injectable()
 export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown {
@@ -25,6 +26,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly daprActorClient: DaprActorClient,
     private readonly moduleRef: ModuleRef,
     private readonly contextService: DaprContextService,
+    private readonly pubSubClient: DaprPubSubClient,
     private readonly actorManager: NestActorManager,
   ) {}
 
@@ -35,13 +37,17 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     }
 
     // Hook into the Dapr Actor Manager
-    this.actorManager.setup(this.moduleRef, this.options.actorOptions);
+    this.actorManager.setup(this.moduleRef, this.options);
     // Setup CLS/ALS for async context propagation
     if (this.options.contextProvider !== DaprContextProvider.None) {
-      this.actorManager.setupCSLWrapper(this.contextService);
+      this.actorManager.setupCSLWrapper(this.options, this.contextService);
     }
     if (this.options.clientOptions?.actor?.reentrancy?.enabled) {
-      this.actorManager.setupReentrancy();
+      this.actorManager.setupReentrancy(this.options);
+    }
+
+    if (this.options.pubsubOptions?.defaultName) {
+      this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
     }
 
     // Setup the actor client (based on the options provided)
@@ -62,8 +68,6 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     }
 
     await this.daprServer.actor.init();
-
-    this.daprServer.daprServer.getServerImpl();
 
     this.loadDaprHandlers();
 
@@ -139,7 +143,8 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     if (!daprPubSubMetadata) {
       return;
     }
-    const { name, topicName, route } = daprPubSubMetadata;
+    const name = daprPubSubMetadata.name ?? this.options.pubsubOptions?.defaultName;
+    const { topicName, route } = daprPubSubMetadata;
 
     this.logger.log(`Subscribing to Dapr: ${name}, Topic: ${topicName}${route ? ' on route ' + route : ''}`);
     await this.daprServer.pubsub.subscribe(
@@ -147,19 +152,31 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       topicName,
       async (data: any) => {
         try {
-          await instance[methodKey].call(instance, data);
+          // The first argument will be the data.
+          // The method invoked can be a void method or return a DaprPubSubStatusEnum value
+          const result = await instance[methodKey].call(instance, data);
+          // If the result is a DaprPubSubStatusEnum then return it, otherwise assume success
+          if (result && result in DaprPubSubStatusEnum) {
+            return result;
+          }
+          // If no exception has occurred, then return success
+          return DaprPubSubStatusEnum.SUCCESS;
         } catch (err) {
-          if (this.options.onError) {
-            const response = this.options.onError(name, topicName, err);
+          this.logger.error(err, `Error in pubsub handler ${topicName}`);
+          // If there is an error handler then use it.
+          if (this.options.pubsubOptions?.onError) {
+            const response = this.options.pubsubOptions?.onError(name, topicName, err);
             if (response == DaprPubSubStatusEnum.RETRY) {
-              this.logger.debug('Retrying pubsub handler operation');
+              this.logger.log(`Retrying pubsub handler ${topicName} operation`);
             } else if (response == DaprPubSubStatusEnum.DROP) {
-              this.logger.debug('Dropping message');
+              this.logger.debug(`Dropping message from ${topicName}`);
             }
             return response;
           }
+          // The safest default return type is retry.
+          this.logger.log(`Retrying pubsub handler ${topicName} operation`);
+          return DaprPubSubStatusEnum.RETRY;
         }
-        return DaprPubSubStatusEnum.SUCCESS;
       },
       route,
     );

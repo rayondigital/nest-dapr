@@ -2,12 +2,16 @@ import { CommunicationProtocolEnum, DaprClient, DaprPubSubStatusEnum, DaprServer
 import { DaprClientOptions } from '@dapr/dapr/types/DaprClientOptions';
 import { DynamicModule, Module, ModuleMetadata, Provider, Scope, Type } from '@nestjs/common';
 import { DiscoveryModule, Reflector } from '@nestjs/core';
+import { ClsModule } from 'nestjs-cls';
 import { ActorRuntimeService } from './actors/actor-runtime.service';
 import { DaprActorClient } from './actors/dapr-actor-client.service';
 import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
+import { DaprEventEmitter } from './dapr-event-emitter.service';
+import { DaprEventSubscriberLoader } from './dapr-event-subscriber.loader';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprLoader } from './dapr.loader';
+import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 
 export const DAPR_MODULE_OPTIONS_TOKEN = 'DAPR_MODULE_OPTIONS_TOKEN';
 
@@ -16,11 +20,16 @@ export interface DaprModuleOptions {
   serverPort?: string;
   communicationProtocol?: CommunicationProtocolEnum;
   clientOptions?: DaprClientOptions;
-  onError?: (name: string, topicName: string, error: any) => DaprPubSubStatusEnum;
   actorOptions?: DaprModuleActorOptions;
+  pubsubOptions?: DaprModulePubSubOptions;
   disabled?: boolean;
   contextProvider?: DaprContextProvider;
+  logging?: DaprModuleLoggingOptions;
   catchErrors?: boolean;
+}
+
+export interface DaprModuleLoggingOptions {
+  enabled: boolean;
 }
 
 export interface DaprModuleActorOptions {
@@ -28,6 +37,11 @@ export interface DaprModuleActorOptions {
   delimiter?: string;
   typeNamePrefix?: string;
   allowInternalCalls?: boolean; // Allow actors to call internally within the same process
+}
+
+export interface DaprModulePubSubOptions {
+  defaultName?: string;
+  onError?: (name: string, topicName: string, error: any) => DaprPubSubStatusEnum;
 }
 
 export enum DaprContextProvider {
@@ -66,15 +80,16 @@ export interface DaprModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> 
 }
 
 @Module({
-  providers: [DaprActorClient, NestActorManager, DaprContextService, ActorRuntimeService],
-  exports: [DaprActorClient, DaprContextService, ActorRuntimeService],
+  imports: [ClsModule, DiscoveryModule],
+  providers: [DaprActorClient, NestActorManager, DaprContextService, DaprEventSubscriberLoader, ActorRuntimeService],
+  exports: [DaprActorClient, DaprContextService, DaprEventSubscriberLoader, ActorRuntimeService],
 })
 export class DaprModule {
   static register(options?: DaprModuleOptions): DynamicModule {
     return {
       global: true,
       module: DaprModule,
-      imports: [DiscoveryModule],
+      imports: [DiscoveryModule, ClsModule],
       providers: [
         createOptionsProvider(options),
         {
@@ -95,10 +110,22 @@ export class DaprModule {
         },
         DaprLoader,
         DaprMetadataAccessor,
+        DaprEventSubscriberLoader,
         DaprContextService,
+        DaprActorClient,
+        DaprPubSubClient,
+        DaprEventEmitter,
         Reflector,
       ],
-      exports: [DaprClient],
+      exports: [
+        DaprClient,
+        DaprPubSubClient,
+        DaprContextService,
+        ActorRuntimeService,
+        DaprActorClient,
+        DaprEventSubscriberLoader,
+        DaprEventEmitter,
+      ],
     };
   }
 
@@ -129,11 +156,23 @@ export class DaprModule {
         },
         DaprLoader,
         DaprMetadataAccessor,
+        DaprEventSubscriberLoader,
         DaprContextService,
+        DaprActorClient,
+        DaprPubSubClient,
+        DaprEventEmitter,
         Reflector,
         ...(options.extraProviders || []),
       ],
-      exports: [DaprClient],
+      exports: [
+        DaprClient,
+        DaprPubSubClient,
+        DaprContextService,
+        ActorRuntimeService,
+        DaprActorClient,
+        DaprEventSubscriberLoader,
+        DaprEventEmitter,
+      ],
     };
   }
 

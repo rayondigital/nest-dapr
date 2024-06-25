@@ -1,5 +1,5 @@
 import { IState, StatefulActor } from '../../lib/actors/stateful.actor';
-import { DaprActor, DaprContextService, State } from '../../lib';
+import { DaprActor, State } from '../../lib';
 import { Inject } from '@nestjs/common';
 import { CacheService } from './cache.service';
 
@@ -9,7 +9,7 @@ export abstract class CounterActorInterface {
 }
 
 export class CounterState implements IState {
-  counter: number;
+  counter: number = 0;
 
   fromJSON(json: any) {
     this.counter = json.counter;
@@ -29,9 +29,6 @@ export class CounterState implements IState {
 export class CounterActor extends StatefulActor implements CounterActorInterface {
   @Inject(CacheService)
   private readonly cacheService: CacheService;
-
-  @Inject()
-  private readonly contextService: DaprContextService;
 
   @State({
     defaultValue: () => new CounterState(),
@@ -57,6 +54,6 @@ export class CounterActor extends StatefulActor implements CounterActorInterface
   }
 
   async getCounter(): Promise<number> {
-    return this.state.counter;
+    return this.state.counter ?? 0;
   }
 }
