@@ -30,7 +30,7 @@
     "@nestjs/cqrs": "^10.2.6",
     "@nestjs/event-emitter": "^2.0.4",
     "@nestjs/platform-express": "^10.0.0",
-    "@rayondigital/nest-dapr": "0.9.72",
+    "@rayondigital/nest-dapr": "^0.9.73",
     "nestjs-cls": "^3.6.0",
     "reflect-metadata": "^0.1.13",
     "rimraf": "^3.0.2",
