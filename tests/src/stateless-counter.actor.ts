@@ -8,6 +8,7 @@ export abstract class StatelessCounterActorInterface {
   abstract getCounter(): Promise<number>;
   abstract throwSerializableError(): Promise<void>;
   abstract throwError(): Promise<void>;
+  abstract reset(): Promise<void>;
 }
 
 @DaprActor({
@@ -34,6 +35,10 @@ export class StatelessCounterActor extends AbstractActor implements StatelessCou
     console.log('existingContext', existingContext);
     console.log('correlationID', existingContext?.correlationID);
     return this.counter;
+  }
+
+  async reset(): Promise<void> {
+    this.counter = 0;
   }
 
   async throwSerializableError(): Promise<void> {

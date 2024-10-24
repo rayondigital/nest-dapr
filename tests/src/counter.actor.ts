@@ -6,6 +6,7 @@ import { CacheService } from './cache.service';
 export abstract class CounterActorInterface {
   abstract increment(): Promise<void>;
   abstract getCounter(): Promise<number>;
+  abstract reset(): Promise<void>;
 }
 
 export class CounterState implements IState {
@@ -55,5 +56,10 @@ export class CounterActor extends StatefulActor implements CounterActorInterface
 
   async getCounter(): Promise<number> {
     return this.state.counter ?? 0;
+  }
+
+  async reset(): Promise<void> {
+    this.state.counter = 0;
+    await this.saveState();
   }
 }

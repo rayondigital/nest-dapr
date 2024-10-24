@@ -2,7 +2,7 @@ import { Module } from '@nestjs/common';
 import { PubsubController } from './pubsub.controller';
 import { CommunicationProtocolEnum, DaprPubSubStatusEnum } from '@dapr/dapr';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { DaprModule } from '@rayondigital/nest-dapr';
+import { DaprContextProvider, DaprModule } from '@rayondigital/nest-dapr';
 import { CounterController } from './counter.controller';
 import { CqrsModule } from '@nestjs/cqrs';
 import { CounterModule } from './counter/counter.module';
@@ -45,14 +45,15 @@ import { PubSubReceiverService } from './pubsub.service';
               actorIdleTimeout: '1m',
               actorScanInterval: '30s',
             },
-            contextProvider: 'nest-cls',
+            contextProvider: DaprContextProvider.NestCLS,
+            catchErrors: true,
           },
           communicationProtocol:
             configService.get('DAPR_COMMUNICATION_PROTOCOL') ??
             CommunicationProtocolEnum.HTTP,
         };
       },
-      imports: [ClsModule],
+      imports: [ClsModule, ConfigModule],
       inject: [ConfigService],
     }),
     MediatorModule,

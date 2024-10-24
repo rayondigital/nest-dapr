@@ -26,6 +26,7 @@ export interface DaprModuleOptions {
   contextProvider?: DaprContextProvider;
   logging?: DaprModuleLoggingOptions;
   catchErrors?: boolean;
+  extraProviders?: Provider[];
 }
 
 export interface DaprModuleLoggingOptions {
@@ -79,11 +80,7 @@ export interface DaprModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> 
   extraProviders?: Provider[];
 }
 
-@Module({
-  imports: [ClsModule, DiscoveryModule],
-  providers: [DaprActorClient, NestActorManager, DaprContextService, DaprEventSubscriberLoader, ActorRuntimeService],
-  exports: [DaprActorClient, DaprContextService, DaprEventSubscriberLoader, ActorRuntimeService],
-})
+@Module({})
 export class DaprModule {
   static register(options?: DaprModuleOptions): DynamicModule {
     return {
@@ -108,6 +105,7 @@ export class DaprModule {
           useFactory: (daprServer: DaprServer) => daprServer.client,
           inject: [DaprServer],
         },
+        NestActorManager,
         DaprLoader,
         DaprMetadataAccessor,
         DaprEventSubscriberLoader,
@@ -115,11 +113,14 @@ export class DaprModule {
         DaprActorClient,
         DaprPubSubClient,
         DaprEventEmitter,
+        ActorRuntimeService,
         Reflector,
+        ...(options.extraProviders || []),
       ],
       exports: [
         DaprClient,
         DaprPubSubClient,
+        DaprMetadataAccessor,
         DaprContextService,
         ActorRuntimeService,
         DaprActorClient,
@@ -154,6 +155,7 @@ export class DaprModule {
           useFactory: (daprServer: DaprServer) => daprServer.client,
           inject: [DaprServer],
         },
+        NestActorManager,
         DaprLoader,
         DaprMetadataAccessor,
         DaprEventSubscriberLoader,
@@ -161,11 +163,13 @@ export class DaprModule {
         DaprActorClient,
         DaprPubSubClient,
         DaprEventEmitter,
+        ActorRuntimeService,
         Reflector,
         ...(options.extraProviders || []),
       ],
       exports: [
         DaprClient,
+        DaprMetadataAccessor,
         DaprPubSubClient,
         DaprContextService,
         ActorRuntimeService,

@@ -62,7 +62,9 @@ export class NestActorManager {
     // Patch existing methods to ensure they do not allow the main host to crash with an unhandled exception
     this.patchDeactivate(options);
     this.patchToSupportSerializableError(options);
-    if (isLoggingEnabled) {
+
+    const isErrorHandlerEnabled = options?.catchErrors ?? false;
+    if (isErrorHandlerEnabled) {
       // Catch and log any unhandled exceptions
       this.catchAndLogUnhandledExceptions();
     }

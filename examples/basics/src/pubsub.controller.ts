@@ -18,7 +18,12 @@ export class PubsubController {
   async pubsub(@Param('topic') topic = 'events') {
     const message: Message = { hello: Date.now().toString() };
     console.log('message', message);
-    await this.daprPubSubClient.publish('123', topic, message);
+    await this.daprPubSubClient.publish(
+      process.env.PUBSUB_NAME ?? 'pubsub',
+      '123',
+      topic,
+      message,
+    );
   }
 
   @DaprPubSub({ name: 'eventhub-pubsub', topicName: 'events' })

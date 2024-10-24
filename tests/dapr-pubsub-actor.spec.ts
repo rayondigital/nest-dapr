@@ -84,6 +84,7 @@ describe('DaprPubSubActor', () => {
       await sleep(250, 4);
 
       const actor = daprActorClient.getActor(StatelessPubSubActorInterface, 'test-1');
+      await actor.reset();
       const actorMessages = await actor.getMessages();
       expect(actorMessages.length).toEqual(4);
     });
