@@ -26,6 +26,7 @@ export interface DaprModuleOptions {
   contextProvider?: DaprContextProvider;
   logging?: DaprModuleLoggingOptions;
   catchErrors?: boolean;
+  extraProviders?: Provider[];
 }
 
 export interface DaprModuleLoggingOptions {
@@ -104,6 +105,7 @@ export class DaprModule {
           useFactory: (daprServer: DaprServer) => daprServer.client,
           inject: [DaprServer],
         },
+        NestActorManager,
         DaprLoader,
         DaprMetadataAccessor,
         DaprEventSubscriberLoader,
@@ -111,7 +113,9 @@ export class DaprModule {
         DaprActorClient,
         DaprPubSubClient,
         DaprEventEmitter,
+        ActorRuntimeService,
         Reflector,
+        ...(options.extraProviders || []),
       ],
       exports: [
         DaprClient,
@@ -151,6 +155,7 @@ export class DaprModule {
           useFactory: (daprServer: DaprServer) => daprServer.client,
           inject: [DaprServer],
         },
+        NestActorManager,
         DaprLoader,
         DaprMetadataAccessor,
         DaprEventSubscriberLoader,
@@ -158,6 +163,7 @@ export class DaprModule {
         DaprActorClient,
         DaprPubSubClient,
         DaprEventEmitter,
+        ActorRuntimeService,
         Reflector,
         ...(options.extraProviders || []),
       ],
