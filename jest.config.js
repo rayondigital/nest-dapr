@@ -5,6 +5,7 @@ module.exports = {
   testEnvironment: 'node',
   testRegex: '.spec.ts$',
   bail: 1,
+  maxWorkers: 1,
   testTimeout: 30000,
   transform: {
     '^.+\\.(t|j)s$': [

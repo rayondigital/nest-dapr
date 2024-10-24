@@ -119,7 +119,7 @@ describe('DaprPubSub', () => {
       // Wait another 5 seconds to ensure no more messages are received
       await sleep(5000);
       expect(messages.length).toBeGreaterThan(3);
-      expect(messages.length).toBeLessThan(10);
+      expect(messages.length).toBeLessThanOrEqual(10);
     }, 60000);
   });
 

@@ -82,7 +82,7 @@ export interface DaprModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> 
 @Module({
   imports: [ClsModule, DiscoveryModule],
   providers: [DaprActorClient, NestActorManager, DaprContextService, DaprEventSubscriberLoader, ActorRuntimeService],
-  exports: [DaprActorClient, DaprContextService, DaprEventSubscriberLoader, ActorRuntimeService],
+  exports: [DaprActorClient, DaprContextService, DaprMetadataAccessor, DaprEventSubscriberLoader, ActorRuntimeService],
 })
 export class DaprModule {
   static register(options?: DaprModuleOptions): DynamicModule {
@@ -120,6 +120,7 @@ export class DaprModule {
       exports: [
         DaprClient,
         DaprPubSubClient,
+        DaprMetadataAccessor,
         DaprContextService,
         ActorRuntimeService,
         DaprActorClient,

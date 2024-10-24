@@ -7,6 +7,7 @@ export abstract class StatelessPubSubActorInterface {
   abstract increment(payload?: any): Promise<void>;
   abstract getMessages(): Promise<any[]>;
   abstract handleEvent(payload?: PubSubEvent): Promise<void>;
+  abstract reset(): Promise<void>;
 }
 
 export class PubSubEvent {
@@ -38,6 +39,10 @@ export class StatelessPubSubActor extends AbstractActor implements StatelessPubS
     console.log('existingContext', existingContext);
     console.log('correlationID', existingContext?.correlationID);
     this.counter++;
+  }
+
+  async reset(): Promise<void> {
+    this.counter = 0;
   }
 
   @DaprActorOnEvent<PubSubEvent>('com.example.event', (payload) => payload.producerId)

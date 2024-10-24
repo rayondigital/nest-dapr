@@ -50,6 +50,7 @@ describe('DaprActorClient', () => {
   describe('callActor', () => {
     it('should call a stateless actor', async () => {
       const actor = daprActorClient.getActor(StatelessCounterActorInterface, 'stateless-1');
+      await actor.reset();
       const initialValue = await actor.getCounter();
       expect(initialValue).toBeDefined();
 
@@ -63,6 +64,7 @@ describe('DaprActorClient', () => {
 
     it('should call a stateful actor', async () => {
       const actor = daprActorClient.getActor(CounterActorInterface, 'stateful-1');
+      await actor.reset();
       const initialValue = await actor.getCounter();
       expect(initialValue).toBeDefined();
 
