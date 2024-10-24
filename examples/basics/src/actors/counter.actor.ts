@@ -1,9 +1,5 @@
-import {
-  DaprActor,
-  DaprActorClient,
-  StatefulActor,
-} from '@rayondigital/nest-dapr';
-import { Inject, Logger } from '@nestjs/common';
+import { DaprActor, StatefulActor } from '@rayondigital/nest-dapr';
+import { Inject } from '@nestjs/common';
 import { Mediator } from '../mediator/mediator.service';
 import { ExternalCommand } from '../counter/external-command';
 import { Temporal } from '@dapr/dapr';
@@ -17,17 +13,13 @@ export class CounterActor
   extends StatefulActor
   implements CounterActorInterface
 {
-  private readonly log = new Logger(CounterActor.name);
-
-  @Inject()
-  private readonly client: DaprActorClient;
   @Inject()
   private readonly mediator: Mediator;
 
   counter: number;
 
   async onActivate(): Promise<void> {
-    this.counter = await this.getState('counter', 0);
+    this.counter = await this.getStateValue('counter', 0);
     this.logInfo(`onActivate: ${this.getActorId()}`);
 
     await this.unregisterActorReminder('reminder-one');
@@ -56,7 +48,7 @@ export class CounterActor
   async increment(): Promise<number> {
     this.counter++;
     this.logInfo(`increment: ${this.getActorId()}`);
-    await this.setState('counter', this.counter);
+    await this.setStateValue('counter', this.counter);
     await this.saveState();
 
     // Call the database
@@ -75,13 +67,13 @@ export class CounterActor
 
   async getCounter(): Promise<number> {
     this.logInfo(`getCounter: ${this.getActorId()} ${this.counter}`);
-    const counter = await this.getState('counter', 0);
+    const counter = await this.getStateValue('counter', 0);
     this.counter = counter;
     return counter;
   }
 
   private logInfo(message: string | any, data?: any) {
-    this.log.log(
+    this.log(
       `[${process.env.HOSTNAME || 'localhost'}] ${message} ${data ?? ''}`,
     );
   }
