@@ -18,9 +18,11 @@ export const DAPR_MODULE_OPTIONS_TOKEN = 'DAPR_MODULE_OPTIONS_TOKEN';
 export interface DaprModuleOptions {
   serverHost?: string;
   serverPort?: string;
+  serverGrpcPort?: string;
   communicationProtocol?: CommunicationProtocolEnum;
   clientOptions?: DaprClientOptions;
   actorOptions?: DaprModuleActorOptions;
+  workflowOptions?: DaprModuleWorkflowOptions;
   pubsubOptions?: DaprModulePubSubOptions;
   disabled?: boolean;
   contextProvider?: DaprContextProvider;
@@ -34,10 +36,16 @@ export interface DaprModuleLoggingOptions {
 }
 
 export interface DaprModuleActorOptions {
+  enabled: boolean;
   prefix?: string;
   delimiter?: string;
   typeNamePrefix?: string;
   allowInternalCalls?: boolean; // Allow actors to call internally within the same process
+}
+
+export interface DaprModuleWorkflowOptions {
+  enabled: boolean;
+  daprPort?: string;
 }
 
 export interface DaprModulePubSubOptions {
@@ -57,7 +65,7 @@ export interface DaprModuleOptionsFactory {
 
 export function createOptionsProvider(options: DaprModuleOptions): any {
   // Setup default options for actor clients if not provided.
-  // Reentrancy is enabled by default, with a max stack depth of 6 calls.
+  // Reentrancy is enabled by default, with a max stack depth of 6 calls (which is a sensible default).
   // See https://docs.dapr.io/developing-applications/building-blocks/actors/actors-runtime-config/
   if (!options.clientOptions.actor) {
     options.clientOptions.actor = {
@@ -67,6 +75,12 @@ export function createOptionsProvider(options: DaprModuleOptions): any {
       },
       actorIdleTimeout: '15m',
       actorScanInterval: '1m',
+    };
+  }
+  // Setup default options for workflows if not provided.
+  if (!options.workflowOptions) {
+    options.workflowOptions = {
+      enabled: true,
     };
   }
   return { provide: DAPR_MODULE_OPTIONS_TOKEN, useValue: options || {} };

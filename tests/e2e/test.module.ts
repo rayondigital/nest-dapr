@@ -11,6 +11,7 @@ import { ClsModule } from 'nestjs-cls';
 import { DaprContextProvider } from '../../lib/dapr.module';
 import { registerTracerProvider } from '../trace.setup';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../../lib/dapr-context-service';
+import { HelloActivity, HelloWorkflow } from '../src/hello-workflow';
 
 registerTracerProvider('http://localhost:4318/v1/traces');
 
@@ -32,11 +33,11 @@ registerTracerProvider('http://localhost:4318/v1/traces');
     }),
     DaprModule.register({
       serverHost: '127.0.0.1',
-      serverPort: process.env.PORT ?? '3001',
+      serverPort: process.env.PORT ?? '3001', // This is the LOCAL server
       communicationProtocol: CommunicationProtocolEnum.HTTP,
       clientOptions: {
         daprHost: '127.0.0.1',
-        daprPort: process.env.DAPR_PORT ?? '3500',
+        daprPort: process.env.DAPR_PORT ?? '3500', // This is the SIDECAR server
         communicationProtocol: CommunicationProtocolEnum.HTTP,
         logger: {
           level: LogLevel.Verbose,
@@ -53,7 +54,12 @@ registerTracerProvider('http://localhost:4318/v1/traces');
         },
       },
       actorOptions: {
+        enabled: false,
         allowInternalCalls: false,
+      },
+      workflowOptions: {
+        enabled: true,
+        daprPort: process.env.DAPR_GRPC_PORT ?? '3501', // This is the GRPC server
       },
       logging: {
         enabled: true,
@@ -62,6 +68,14 @@ registerTracerProvider('http://localhost:4318/v1/traces');
     }),
   ],
   controllers: [CounterController],
-  providers: [CacheService, StatelessCounterActor, CounterActor, ContextAwareActor, StatelessPubSubActor],
+  providers: [
+    CacheService,
+    StatelessCounterActor,
+    CounterActor,
+    ContextAwareActor,
+    StatelessPubSubActor,
+    HelloActivity,
+    HelloWorkflow,
+  ],
 })
 export class TestModule {}

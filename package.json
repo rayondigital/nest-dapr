@@ -30,12 +30,12 @@
     "@opentelemetry/core": "^1.0.0",
     "@opentelemetry/sdk-trace-base": "^1.0.0",
     "eventemitter2": "^6.0.0",
-    "nestjs-cls": "^3.6.0",
+    "nestjs-cls": "^5.0.0",
     "rxjs": "^7.1.0",
     "node-fetch": "^3.0.0"
   },
   "dependencies": {
-    "@dapr/dapr": "^3.4.1",
+    "@dapr/dapr": "^3.5.2",
     "async-lock": "^1.4.1",
     "node-fetch": "^3.0.0",
     "whatwg-url": "^14.0.0"
@@ -62,7 +62,7 @@
     "typescript": "^4.8.4"
   },
   "optionalDependencies": {
-    "nestjs-cls": "^3.6.0",
+    "nestjs-cls": "^5.0.0",
     "eventemitter2": "^6.0.0"
   },
   "publishConfig": {
