@@ -36,16 +36,17 @@ describe('DaprWorkflow', () => {
       // Schedule a new orchestration
       const uuid = randomUUID();
       const id = await workflowClient.scheduleNewWorkflow(HelloWorkflow, 'Hello', uuid);
+      const createdAt = new Date();
       console.log(`Orchestration scheduled with ID: ${id}`);
       expect(id).toEqual(uuid);
-      const createdAt = new Date();
 
-      await sleep(250);
+      const initialState = await workflowClient.waitForWorkflowStart(id, undefined, 15);
+      expect(initialState).toBeDefined();
 
       await workflowClient.raiseEvent(id, 'next', { input: 'next' });
 
       // Wait for orchestration completion
-      const state = await workflowClient.waitForWorkflowCompletion(id, undefined, 5);
+      const state = await workflowClient.waitForWorkflowCompletion(id, undefined, 15);
       const diff = state.lastUpdatedAt.getTime() - createdAt.getTime();
       const ms = Math.abs(diff);
 

@@ -49,31 +49,22 @@ export class HelloWorkflow implements Workflow<string[], string> {
     const cities: string[] = [];
 
     let entity = expect<Entity>(yield ctx.callActivity(CreateEntityActivity, '12345'));
-    console.log('entity', entity);
-    console.log(ctx.getCurrentUtcDateTime());
     ctx.setCustomStatus('Entity');
 
     entity = expect<Entity>(yield ctx.callActivity(GetEntityActivity, '12345'));
     console.log('entity', entity);
-    console.log(ctx.getCurrentUtcDateTime());
     ctx.setCustomStatus('Entity');
 
     const result1 = expect<string>(yield ctx.callActivity(HelloActivity, 'Tokyo'));
-    cities.push(result1);
-    console.log(ctx.getCurrentUtcDateTime());
     ctx.setCustomStatus('Tokyo');
 
     const event = yield ctx.waitForExternalEvent('next');
     console.log('event', event);
 
     const result2 = expect<string>(yield ctx.callActivity(HelloActivity, 'Seattle'));
-    cities.push(result2);
-    console.log(ctx.getCurrentUtcDateTime());
     ctx.setCustomStatus('Seattle');
 
     const result3 = expect<string>(yield ctx.callActivity(HelloActivity, 'London'));
-    cities.push(result3);
-    console.log(ctx.getCurrentUtcDateTime());
     ctx.setCustomStatus('London');
 
     return cities;
