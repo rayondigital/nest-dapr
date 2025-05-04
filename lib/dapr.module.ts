@@ -12,6 +12,7 @@ import { DaprEventSubscriberLoader } from './dapr-event-subscriber.loader';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprLoader } from './dapr.loader';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
+import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
 
 export const DAPR_MODULE_OPTIONS_TOKEN = 'DAPR_MODULE_OPTIONS_TOKEN';
 
@@ -126,6 +127,7 @@ export class DaprModule {
         DaprContextService,
         DaprActorClient,
         DaprPubSubClient,
+        DaprWorkflowClient,
         DaprEventEmitter,
         ActorRuntimeService,
         Reflector,
@@ -138,6 +140,7 @@ export class DaprModule {
         DaprContextService,
         ActorRuntimeService,
         DaprActorClient,
+        DaprWorkflowClient,
         DaprEventSubscriberLoader,
         DaprEventEmitter,
       ],
@@ -176,6 +179,7 @@ export class DaprModule {
         DaprContextService,
         DaprActorClient,
         DaprPubSubClient,
+        DaprWorkflowClient,
         DaprEventEmitter,
         ActorRuntimeService,
         Reflector,
@@ -188,6 +192,7 @@ export class DaprModule {
         DaprContextService,
         ActorRuntimeService,
         DaprActorClient,
+        DaprWorkflowClient,
         DaprEventSubscriberLoader,
         DaprEventEmitter,
       ],

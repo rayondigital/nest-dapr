@@ -11,6 +11,7 @@ import { DaprContextService } from './dapr-context-service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DAPR_MODULE_OPTIONS_TOKEN, DaprContextProvider, DaprModuleOptions } from './dapr.module';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
+import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
 import { lazyWorkflow, Workflow } from './workflow/workflow';
 import { lazyActivity, WorkflowActivity } from './workflow/workflow-activity';
 
@@ -30,6 +31,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly moduleRef: ModuleRef,
     private readonly contextService: DaprContextService,
     private readonly pubSubClient: DaprPubSubClient,
+    private readonly workflowClient: DaprWorkflowClient,
     private readonly actorManager: NestActorManager,
   ) {}
 
@@ -118,6 +120,10 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     if (this.options.workflowOptions.enabled) {
       this.logger.log('Starting Dapr workflow runtime');
       await this.workflowRuntime.start();
+      await this.workflowClient.start({
+        daprHost: this.options.serverHost,
+        daprPort: this.options.workflowOptions.daprPort ?? '3501',
+      });
     }
 
     if (!isActorsEnabled) return;
@@ -133,6 +139,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       this.logger.log('Stopping Dapr workflow runtime');
       try {
         await this.workflowRuntime.stop();
+        await this.workflowClient.stop();
       } catch {
         // Ignore errors
       } finally {

@@ -11,7 +11,8 @@ import { ClsModule } from 'nestjs-cls';
 import { DaprContextProvider } from '../../lib/dapr.module';
 import { registerTracerProvider } from '../trace.setup';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../../lib/dapr-context-service';
-import { HelloActivity, HelloWorkflow } from '../src/hello-workflow';
+import { CreateEntityActivity, GetEntityActivity, HelloActivity, HelloWorkflow } from '../src/hello-workflow';
+import { EntityService } from '../src/entity.service';
 
 registerTracerProvider('http://localhost:4318/v1/traces');
 
@@ -54,7 +55,7 @@ registerTracerProvider('http://localhost:4318/v1/traces');
         },
       },
       actorOptions: {
-        enabled: false,
+        enabled: true,
         allowInternalCalls: false,
       },
       workflowOptions: {
@@ -69,12 +70,16 @@ registerTracerProvider('http://localhost:4318/v1/traces');
   ],
   controllers: [CounterController],
   providers: [
+    EntityService,
     CacheService,
     StatelessCounterActor,
     CounterActor,
     ContextAwareActor,
     StatelessPubSubActor,
     HelloActivity,
+    CreateEntityActivity,
+    GetEntityActivity,
+    GetEntityActivity,
     HelloWorkflow,
   ],
 })
