@@ -5,11 +5,15 @@ import {
   DAPR_BINDING_METADATA,
   DAPR_PUBSUB_METADATA,
   DAPR_ACTOR_EVENT_METADATA,
+  DAPR_ACTIVITY_METADATA,
+  DAPR_WORKFLOW_METADATA,
 } from './constants';
+import { DaprActivityMetadata } from './dapr-activity.decorator';
 import { DaprActorOnEventMetadata } from './dapr-actor-on-event.decorator';
 import { DaprActorMetadata } from './dapr-actor.decorator';
 import { DaprBindingMetadata } from './dapr-binding.decorator';
 import { DaprPubSubMetadata } from './dapr-pubsub.decorator';
+import { DaprWorkflowMetadata } from './dapr-workflow.decorator';
 
 @Injectable()
 export class DaprMetadataAccessor {
@@ -25,6 +29,14 @@ export class DaprMetadataAccessor {
 
   getDaprActorMetadata(target: Function | Type<unknown>): DaprActorMetadata | undefined {
     return this.reflector.get<DaprActorMetadata>(DAPR_ACTOR_METADATA, target);
+  }
+
+  getDaprActivityMetadata(target: Function | Type<unknown>): DaprActivityMetadata | undefined {
+    return this.reflector.get<DaprActorMetadata>(DAPR_ACTIVITY_METADATA, target);
+  }
+
+  getDaprWorkflowMetadata(target: Function | Type<unknown>): DaprWorkflowMetadata | undefined {
+    return this.reflector.get<DaprActorMetadata>(DAPR_WORKFLOW_METADATA, target);
   }
 
   getDaprEventHandlerMetadata(target: Type<unknown>): DaprActorOnEventMetadata<any>[] | undefined {
