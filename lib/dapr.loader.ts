@@ -36,18 +36,9 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
   ) {}
 
   async onApplicationBootstrap() {
-    if (this.options.disabled) {
-      this.logger.log('Dapr server is disabled');
-      return;
-    }
-    // If the dapr server port is 0, then we will assume that the server is not to be started
-    if (this.options.serverPort === '0') {
-      this.logger.log('Dapr server will not be started');
-      return;
-    }
+    this.logger.log('Dapr initializing');
 
-    this.logger.log('Dapr server initializing');
-
+    const isEnabled = !this.options.disabled;
     const isActorsEnabled = this.options.actorOptions?.enabled ?? true;
     const isWorkflowEnabled = this.options.workflowOptions?.enabled ?? true;
 
@@ -92,32 +83,37 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
           );
         }
       }
-      await this.daprServer.actor.init();
+      if (isEnabled) {
+        this.logger.log('Registering Dapr actors');
+        await this.daprServer.actor.init();
+      }
     }
 
     this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
 
-    this.logger.log('Starting Dapr server');
+    if (isEnabled && this.options.serverPort !== '0') {
+      this.logger.log('Starting Dapr server');
 
-    if (this.options.catchErrors) {
-      // We need to add error handling middleware to the Dapr server
-      const server = this.daprServer.daprServer.getServer(); // Express JS
-      if (server) {
-        // eslint-disable-next-line @typescript-eslint/no-unused-vars
-        server.use((err, req, res, next) => {
-          // Catch any errors, log them and return a 500
-          if (err) {
-            this.logger.error(err, err.stack, 'DaprServer');
-            res.status(500).send(err);
-          }
-        });
+      if (this.options.catchErrors) {
+        // We need to add error handling middleware to the Dapr server
+        const server = this.daprServer.daprServer.getServer(); // Express JS
+        if (server) {
+          // eslint-disable-next-line @typescript-eslint/no-unused-vars
+          server.use((err, req, res, next) => {
+            // Catch any errors, log them and return a 500
+            if (err) {
+              this.logger.error(err, err.stack, 'DaprServer');
+              res.status(500).send(err);
+            }
+          });
+        }
       }
+
+      await this.daprServer.start();
+      this.logger.log('Dapr server started');
     }
 
-    await this.daprServer.start();
-    this.logger.log('Dapr server started');
-
-    if (this.options.workflowOptions.enabled) {
+    if (isEnabled && this.options.workflowOptions.enabled) {
       this.logger.log('Starting Dapr workflow runtime');
       await this.workflowRuntime.start();
       await this.workflowClient.start({
@@ -126,7 +122,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       });
     }
 
-    if (!isActorsEnabled) return;
+    if (!isActorsEnabled || !isEnabled) return;
 
     const registeredActors = await this.daprServer.actor.getRegisteredActors();
     if (registeredActors.length > 0) {
@@ -149,11 +145,13 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
 
     this.logger.log('Stopping Dapr server');
     try {
-      await this.daprServer.stop();
+      if (!this.options.disabled) {
+        await this.daprServer.stop();
+      }
     } catch {
       // Ignore errors
     } finally {
-      this.logger.log('Dapr actor server stopped');
+      this.logger.log('Dapr server stopped');
     }
   }
 
