@@ -40,13 +40,13 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
 
     const isEnabled = !this.options.disabled;
     const isActorsEnabled = this.options.actorOptions?.enabled ?? true;
-    const isWorkflowEnabled = this.options.workflowOptions?.enabled ?? true;
+    const isWorkflowEnabled = this.options.workflowOptions?.enabled ?? false;
 
     if (isWorkflowEnabled) {
       // Setup the Workflow Runtime
       this.workflowRuntime = new WorkflowRuntime({
         daprHost: this.options.serverHost,
-        daprPort: this.options.workflowOptions.daprPort ?? '3501',
+        daprPort: this.options.workflowOptions?.daprPort ?? '3501',
       });
     }
 
