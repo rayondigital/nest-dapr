@@ -179,15 +179,6 @@ Be very careful with the state, and services you have inside your workflows.
 
 
 ```typescript   
-import { DaprActivity } from '../../lib/dapr-activity.decorator';
-import { WorkflowActivityContext, WorkflowContext } from '@dapr/dapr';
-import { WorkflowActivity } from '../../lib/workflow/workflow-activity';
-import { DaprWorkflow } from '../../lib/dapr-workflow.decorator';
-import { expect, Workflow } from '../../lib/workflow/workflow';
-import { CacheService } from './cache.service';
-import { Inject } from '@nestjs/common';
-import { Entity, EntityService } from './entity.service';
-
 @DaprActivity()
 export class HelloActivity implements WorkflowActivity<string, string> {
   async run(context: WorkflowActivityContext, name: string): Promise<string> {
