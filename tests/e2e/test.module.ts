@@ -59,7 +59,7 @@ registerTracerProvider('http://localhost:4318/v1/traces');
         allowInternalCalls: false,
       },
       workflowOptions: {
-        enabled: true,
+        enabled: process.env.DAPR_WORKFLOW_ENABLED === 'true' || false,
         daprPort: process.env.DAPR_GRPC_PORT ?? '3501', // This is the GRPC server
       },
       logging: {

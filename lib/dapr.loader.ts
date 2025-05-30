@@ -42,6 +42,11 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     const isActorsEnabled = this.options.actorOptions?.enabled ?? true;
     const isWorkflowEnabled = this.options.workflowOptions?.enabled ?? false;
 
+    if (isActorsEnabled && isEnabled) {
+      this.logger.log('Registering Dapr actors');
+      await this.daprServer.actor.init();
+    }
+
     if (isWorkflowEnabled) {
       // Setup the Workflow Runtime
       this.workflowRuntime = new WorkflowRuntime({
@@ -50,7 +55,13 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       });
     }
 
+    if (this.options.pubsubOptions?.defaultName) {
+      this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
+    }
+
     if (isActorsEnabled) {
+      this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
+
       // Hook into the Dapr Actor Manager
       this.actorManager.setup(this.moduleRef, this.options);
       // Setup CLS/ALS for async context propagation
@@ -60,13 +71,6 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       if (this.options.clientOptions?.actor?.reentrancy?.enabled) {
         this.actorManager.setupReentrancy(this.options);
       }
-    }
-
-    if (this.options.pubsubOptions?.defaultName) {
-      this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
-    }
-
-    if (isActorsEnabled) {
       // Setup the actor client (based on the options provided)
       if (this.options.actorOptions) {
         this.daprActorClient.setAllowInternalCalls(this.options.actorOptions?.allowInternalCalls ?? false);
@@ -83,13 +87,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
           );
         }
       }
-      if (isEnabled) {
-        this.logger.log('Registering Dapr actors');
-        await this.daprServer.actor.init();
-      }
     }
-
-    this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
 
     if (isEnabled && this.options.serverPort !== '0') {
       this.logger.log('Starting Dapr server');
@@ -113,7 +111,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       this.logger.log('Dapr server started');
     }
 
-    if (isEnabled && this.options.workflowOptions.enabled) {
+    if (isEnabled && isWorkflowEnabled) {
       this.logger.log('Starting Dapr workflow runtime');
       await this.workflowRuntime.start();
       await this.workflowClient.start({
