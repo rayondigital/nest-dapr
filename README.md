@@ -5,23 +5,23 @@ Develop NestJs microservices using [Dapr](https://dapr.io/) pubsub, actors and b
 
 # Description
 
-Dapr Module for [Nest](https://github.com/nestjs/nest) built on top of the [Dapr JS SDK](https://github.com/dapr/js-sdk).
+Dapr Module for [Nest](https://github.com/nestjs/nest) built on top of the latest [Dapr JS SDK](https://github.com/dapr/js-sdk).
 
 
 # Supported features
 - [x] [Actors](https://docs.dapr.io/developing-applications/building-blocks/actors/actors-overview/)
 - [x] [PubSub](https://docs.dapr.io/developing-applications/building-blocks/pubsub/pubsub-overview/)
 - [x] [Bindings](https://docs.dapr.io/developing-applications/building-blocks/bindings/bindings-overview/)
+- [x] [Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/)
 - [ ] [Distributed Lock](https://docs.dapr.io/developing-applications/building-blocks/distributed-lock/)
 - [ ] [State](https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/)
 - [ ] [Service Invocation](https://docs.dapr.io/developing-applications/building-blocks/service-invocation/service-invocation-overview/)
-- [ ] [Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/)
 
 
 # Installation
 
 ```bash
-npm i --save @rayondigital/nest-dapr
+npm i @rayondigital/nest-dapr
 ```
 
 # Requirements
@@ -35,8 +35,8 @@ dapr --version
 Output:
 
 ```
-CLI version: 1.12.0
-Runtime version: 1.12.2
+CLI version: 1.15.1
+Runtime version: 1.15.4
 ```
 
 # Quick start
@@ -99,6 +99,7 @@ export class AppController {
 Create actors and connect them to your NestJS application using the `@DaprActor` decorator.
 This decorator takes in the interface of the actor, and marks the Actor as transient inside the NestJS
 dependency injection container.
+Ensure your actor classes are added to the `providers` array of your NestJS module.
 
 ```typescript
 // You must expose your actors interface as an abstract class because Typescript interfaces are not available at runtime (erasure).
@@ -164,6 +165,121 @@ export class CounterController {
       .getActor(CounterActorInterface, id)
       .increment();
     return `Counter incremented to ${value}`;
+  }
+}
+```
+
+## Workflows
+
+Workflows and Activities are annotated with the `@DaprWorkflow` and `@DaprActivity` decorators respectively.
+When added to the `providers` array of a NestJS module, they are automatically registered with the Dapr server.
+
+Note: Take care to ensure that your activities are stateless, and idempotent.
+Be very careful with the state, and services you have inside your workflows.
+
+
+```typescript   
+import { DaprActivity } from '../../lib/dapr-activity.decorator';
+import { WorkflowActivityContext, WorkflowContext } from '@dapr/dapr';
+import { WorkflowActivity } from '../../lib/workflow/workflow-activity';
+import { DaprWorkflow } from '../../lib/dapr-workflow.decorator';
+import { expect, Workflow } from '../../lib/workflow/workflow';
+import { CacheService } from './cache.service';
+import { Inject } from '@nestjs/common';
+import { Entity, EntityService } from './entity.service';
+
+@DaprActivity()
+export class HelloActivity implements WorkflowActivity<string, string> {
+  async run(context: WorkflowActivityContext, name: string): Promise<string> {
+    return `Hello ${name}!`;
+  }
+}
+
+@DaprActivity()
+export class CreateEntityActivity implements WorkflowActivity<string, Entity> {
+  @Inject()
+  private readonly entityService: EntityService;
+
+  constructor(private readonly cacheService: CacheService) {}
+
+  async run(context: WorkflowActivityContext, id: string): Promise<Entity> {
+    const entity: Entity = { id: id, createdAt: new Date(), lastUpdatedAt: new Date(), status: 'created', data: {} };
+    await this.entityService.update(entity);
+    console.log('entity', entity);
+    return entity;
+  }
+}
+
+@DaprActivity()
+export class GetEntityActivity implements WorkflowActivity<string, Entity> {
+  @Inject()
+  private readonly entityService: EntityService;
+
+  constructor(private readonly cacheService: CacheService) {}
+
+  async run(context: WorkflowActivityContext, id: string): Promise<Entity> {
+    const entity = await this.entityService.get(id);
+    console.log('entity', entity);
+    return entity;
+  }
+}
+
+@DaprWorkflow()
+export class HelloWorkflow implements Workflow<string[], string> {
+  async *run(ctx: WorkflowContext, input: string): AsyncGenerator<unknown, string[]> {
+    const cities: string[] = [];
+
+    let entity = expect<Entity>(yield ctx.callActivity(CreateEntityActivity, '12345'));
+    ctx.setCustomStatus('Entity');
+
+    entity = expect<Entity>(yield ctx.callActivity(GetEntityActivity, '12345'));
+    console.log('entity', entity);
+    ctx.setCustomStatus('Entity');
+
+    const result1 = expect<string>(yield ctx.callActivity(HelloActivity, 'Tokyo'));
+    ctx.setCustomStatus('Tokyo');
+
+    const event = yield ctx.waitForExternalEvent('next');
+    console.log('event', event);
+
+    const result2 = expect<string>(yield ctx.callActivity(HelloActivity, 'Seattle'));
+    ctx.setCustomStatus('Seattle');
+
+    const result3 = expect<string>(yield ctx.callActivity(HelloActivity, 'London'));
+    ctx.setCustomStatus('London');
+
+    return cities;
+  }
+}
+```
+
+### Workflow Client
+
+```typescript
+@Controller()
+export class WorkflowController {
+  constructor(
+    private readonly workflowClient: DaprWorkflowClient,
+  ) {}
+
+  @Get(":id")
+  async start(@Param("id") uuid: string): Promise<string> {
+    const id = await workflowClient.scheduleNewWorkflow(HelloWorkflow, 'Hello', uuid);
+    // Workflow is started, and the id is returned.
+    // You can wait for the workflow to start and get the initial state.
+    const initialState = await workflowClient.waitForWorkflowStart(id, undefined, 15);
+    
+    // You can raise events
+    // await workflowClient.raiseEvent(id, 'next', { input: 'next' });
+    
+    // Optionally you can also wait for it to complete.
+    // const state = await workflowClient.waitForWorkflowCompletion(id, undefined, 15);
+    // Use the workflowOutput helper to get typed variables
+    // const value = workflowOutput(HelloWorkflow, state);
+    return { 
+      id: id,
+      state: initialState
+    }
   }
 }
 ```
