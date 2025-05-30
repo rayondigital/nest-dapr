@@ -55,7 +55,8 @@ export class NestActorManager {
     this.patchDeactivate(options);
     this.patchToSupportSerializableError(options);
 
-    const isErrorHandlerEnabled = options?.catchErrors ?? false;
+    // Error handling is enabled by default
+    const isErrorHandlerEnabled = options?.catchErrors ?? true;
     if (isErrorHandlerEnabled) {
       // Catch and log any unhandled exceptions
       this.catchAndLogUnhandledExceptions();

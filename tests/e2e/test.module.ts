@@ -13,6 +13,7 @@ import { registerTracerProvider } from '../trace.setup';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../../lib/dapr-context-service';
 import { CreateEntityActivity, GetEntityActivity, HelloActivity, HelloWorkflow } from '../src/hello-workflow';
 import { EntityService } from '../src/entity.service';
+import { StatefulReminderActor } from '../src/stateful-reminder.actor';
 
 registerTracerProvider('http://localhost:4318/v1/traces');
 
@@ -74,6 +75,7 @@ registerTracerProvider('http://localhost:4318/v1/traces');
     CacheService,
     StatelessCounterActor,
     CounterActor,
+    StatefulReminderActor,
     ContextAwareActor,
     StatelessPubSubActor,
     HelloActivity,
