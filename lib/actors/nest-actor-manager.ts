@@ -30,14 +30,6 @@ export class NestActorManager {
     ActorManager.prototype.createActor = async function (actorId: ActorId) {
       // Call the original createActor method
       const instance = (await originalCreateActor.bind(this)(actorId)) as AbstractActor;
-      if (options?.actorOptions?.typeNamePrefix) {
-        // This is where we override the Actor Type Name at runtime
-        // This means it may differ from the instance/ctor name.
-        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-        // @ts-ignore
-        instance['actorType'] = `${options.typeNamePrefix}${instance.actorType}`;
-      }
-
       if (isLoggingEnabled) {
         const actorTypeName = this.actorCls.name ?? instance.constructor.name;
         Logger.verbose(`Activating actor ${actorId}`, actorTypeName);
@@ -63,10 +55,15 @@ export class NestActorManager {
     this.patchDeactivate(options);
     this.patchToSupportSerializableError(options);
 
-    const isErrorHandlerEnabled = options?.catchErrors ?? false;
+    // Error handling is enabled by default
+    const isErrorHandlerEnabled = options?.catchErrors ?? true;
     if (isErrorHandlerEnabled) {
       // Catch and log any unhandled exceptions
       this.catchAndLogUnhandledExceptions();
+      // Patch fireTimer and fireReminder methods to catch and log any unhandled exceptions
+      // Which prevents retries from occurring, but also prevents potentially retrying too many times
+      this.patchFireTimer();
+      this.patchFireReminder();
     }
   }
 
@@ -167,6 +164,11 @@ export class NestActorManager {
         if (error.stack) {
           Logger.error(error.stack);
         }
+        if (SerializableError.isSerializableError(error)) {
+          // If the error is a SerializableError, we can set the status code
+          error.statusCode = error.statusCode ?? HttpStatusCode.BAD_REQUEST;
+          return error;
+        }
         throw error;
       }
     };
@@ -212,6 +214,41 @@ export class NestActorManager {
           res.statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
         }
         return this.handleResult(res, error);
+      }
+    };
+  }
+
+  private patchFireTimer() {
+    // Patches the fireTimer method with a try-catch block to prevent unhandled exceptions
+    const originalFireTimer = ActorManager.prototype.fireTimer;
+    if (!originalFireTimer) return;
+
+    // fireTimer(actorId: ActorId, timerName: string, requestBody?: Buffer): Promise<void>;
+    ActorManager.prototype.fireTimer = async function (actorId: ActorId, timerName: string, requestBody?: Buffer) {
+      try {
+        return await originalFireTimer.bind(this)(actorId, timerName, requestBody);
+      } catch (error) {
+        Logger.error(`Error firing timer ${timerName} for actor ${actorId}`);
+        Logger.error(error);
+      }
+    };
+  }
+
+  private patchFireReminder() {
+    const originalFireReminder = ActorManager.prototype.fireReminder;
+    if (!originalFireReminder) return;
+
+    // fireReminder(actorId: ActorId, reminderName: string, requestBody?: Buffer): Promise<void>;
+    ActorManager.prototype.fireReminder = async function (
+      actorId: ActorId,
+      reminderName: string,
+      requestBody?: Buffer,
+    ) {
+      try {
+        return await originalFireReminder.bind(this)(actorId, reminderName, requestBody);
+      } catch (error) {
+        Logger.error(`Error firing reminder ${reminderName} for actor ${actorId}`);
+        Logger.error(error);
       }
     };
   }
@@ -276,6 +313,7 @@ export class NestActorManager {
       throw error;
     }
   }
+
   private static extractContext(data: any): any {
     try {
       if (!data) return undefined;

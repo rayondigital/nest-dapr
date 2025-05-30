@@ -38,9 +38,6 @@ export interface DaprModuleLoggingOptions {
 
 export interface DaprModuleActorOptions {
   enabled: boolean;
-  prefix?: string;
-  delimiter?: string;
-  typeNamePrefix?: string;
   allowInternalCalls?: boolean; // Allow actors to call internally within the same process
 }
 

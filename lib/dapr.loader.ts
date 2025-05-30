@@ -1,6 +1,4 @@
 import { AbstractActor, DaprPubSubStatusEnum, DaprServer, WorkflowRuntime } from '@dapr/dapr';
-import ActorManager from '@dapr/dapr/actors/runtime/ActorManager';
-import ActorRuntime from '@dapr/dapr/actors/runtime/ActorRuntime';
 import Class from '@dapr/dapr/types/Class';
 import { Inject, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown, Type } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
@@ -42,6 +40,11 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     const isActorsEnabled = this.options.actorOptions?.enabled ?? true;
     const isWorkflowEnabled = this.options.workflowOptions?.enabled ?? false;
 
+    if (isActorsEnabled && isEnabled) {
+      this.logger.log('Registering Dapr actors');
+      await this.daprServer.actor.init();
+    }
+
     if (isWorkflowEnabled) {
       // Setup the Workflow Runtime
       this.workflowRuntime = new WorkflowRuntime({
@@ -49,6 +52,12 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
         daprPort: this.options.workflowOptions?.daprPort ?? '3501',
       });
     }
+
+    if (this.options.pubsubOptions?.defaultName) {
+      this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
+    }
+
+    await this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
 
     if (isActorsEnabled) {
       // Hook into the Dapr Actor Manager
@@ -60,36 +69,11 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       if (this.options.clientOptions?.actor?.reentrancy?.enabled) {
         this.actorManager.setupReentrancy(this.options);
       }
-    }
-
-    if (this.options.pubsubOptions?.defaultName) {
-      this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
-    }
-
-    if (isActorsEnabled) {
       // Setup the actor client (based on the options provided)
       if (this.options.actorOptions) {
         this.daprActorClient.setAllowInternalCalls(this.options.actorOptions?.allowInternalCalls ?? false);
-        this.daprActorClient.setPrefix(
-          this.options.actorOptions?.prefix ?? '',
-          this.options.actorOptions?.delimiter ?? '-',
-        );
-        this.daprActorClient.setTypeNamePrefix(this.options.actorOptions?.typeNamePrefix ?? '');
-        if (this.options.actorOptions?.prefix) {
-          this.logger.log(
-            `Actors will be prefixed with ${this.options.actorOptions?.prefix ?? ''} and delimited with ${
-              this.options.actorOptions?.delimiter ?? '-'
-            }`,
-          );
-        }
-      }
-      if (isEnabled) {
-        this.logger.log('Registering Dapr actors');
-        await this.daprServer.actor.init();
       }
     }
-
-    this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
 
     if (isEnabled && this.options.serverPort !== '0') {
       this.logger.log('Starting Dapr server');
@@ -113,7 +97,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       this.logger.log('Dapr server started');
     }
 
-    if (isEnabled && this.options.workflowOptions.enabled) {
+    if (isEnabled && isWorkflowEnabled) {
       this.logger.log('Starting Dapr workflow runtime');
       await this.workflowRuntime.start();
       await this.workflowClient.start({
@@ -155,61 +139,49 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     }
   }
 
-  loadDaprHandlers(isActorsEnabled: boolean, isWorkflowEnabled: boolean) {
+  async loadDaprHandlers(isActorsEnabled: boolean, isWorkflowEnabled: boolean) {
     const providers = this.discoveryService.getProviders();
 
     // Find and register actors
     if (isActorsEnabled) {
-      providers
-        .filter(
-          (wrapper) =>
-            wrapper.isDependencyTreeStatic() &&
-            wrapper.metatype &&
-            this.daprMetadataAccessor.getDaprActorMetadata(wrapper.metatype),
-        )
-        .forEach(async (wrapper) => {
-          await this.registerActor(wrapper.metatype);
-        });
+      for (const instanceWrapper of providers.filter(
+        (wrapper) =>
+          wrapper.isDependencyTreeStatic() &&
+          wrapper.metatype &&
+          this.daprMetadataAccessor.getDaprActorMetadata(wrapper.metatype),
+      )) {
+        await this.registerActor(instanceWrapper.metatype);
+      }
     }
 
     // Find and register pubsub and binding handlers
     const controllers = this.discoveryService.getControllers();
-    [...providers, ...controllers]
+    for (const instanceWrapper of [...providers, ...controllers]
       .filter((wrapper) => wrapper.isDependencyTreeStatic())
-      .filter((wrapper) => wrapper.instance)
-      .forEach(async (wrapper: InstanceWrapper) => {
-        const { instance } = wrapper;
-        const prototype = Object.getPrototypeOf(instance) || {};
-        this.metadataScanner.scanFromPrototype(instance, prototype, async (methodKey: string) => {
-          await this.subscribeToDaprPubSubEventIfListener(instance, methodKey);
-          await this.subscribeToDaprBindingEventIfListener(instance, methodKey);
-        });
-      });
+      .filter((wrapper) => wrapper.instance)) {
+      await this.registerHandlers(instanceWrapper);
+    }
 
     // Find and register workflow activities
     if (isWorkflowEnabled) {
-      providers
-        .filter(
-          (wrapper) =>
-            wrapper.isDependencyTreeStatic() &&
-            wrapper.metatype &&
-            this.daprMetadataAccessor.getDaprActivityMetadata(wrapper.metatype),
-        )
-        .forEach(async (wrapper) => {
-          await this.registerActivity(wrapper.metatype);
-        });
+      for (const instanceWrapper of providers.filter(
+        (wrapper) =>
+          wrapper.isDependencyTreeStatic() &&
+          wrapper.metatype &&
+          this.daprMetadataAccessor.getDaprActivityMetadata(wrapper.metatype),
+      )) {
+        await this.registerActivity(instanceWrapper.metatype);
+      }
 
       // Find and register workflow orchestrations
-      providers
-        .filter(
-          (wrapper) =>
-            wrapper.isDependencyTreeStatic() &&
-            wrapper.metatype &&
-            this.daprMetadataAccessor.getDaprWorkflowMetadata(wrapper.metatype),
-        )
-        .forEach(async (wrapper) => {
-          await this.registerWorkflow(wrapper.metatype);
-        });
+      for (const instanceWrapper of providers.filter(
+        (wrapper) =>
+          wrapper.isDependencyTreeStatic() &&
+          wrapper.metatype &&
+          this.daprMetadataAccessor.getDaprWorkflowMetadata(wrapper.metatype),
+      )) {
+        await this.registerWorkflow(instanceWrapper.metatype);
+      }
     }
   }
 
@@ -270,6 +242,15 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     });
   }
 
+  private async registerHandlers(instanceWrapper: InstanceWrapper) {
+    const instance = instanceWrapper.instance;
+    const prototype = Object.getPrototypeOf(instance) || {};
+    this.metadataScanner.scanFromPrototype(instance, prototype, async (methodKey: string) => {
+      await this.subscribeToDaprPubSubEventIfListener(instance, methodKey);
+      await this.subscribeToDaprBindingEventIfListener(instance, methodKey);
+    });
+  }
+
   private async registerActivity<T>(activityType: Type<T> | Function) {
     if (!activityType) return;
 
@@ -311,33 +292,13 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
   private async registerActor<T>(actorType: Type<T> | Function) {
     if (!actorType) return;
 
-    let actorTypeName = actorType.name ?? actorType.constructor.name;
-
     // We need to get the @DaprActor decorator metadata
     const daprActorMetadata = this.daprMetadataAccessor.getDaprActorMetadata(actorType);
-
+    const actorTypeName = actorType.name ?? actorType.constructor.name;
     const interfaceTypeName =
       daprActorMetadata?.interfaceType?.name ?? daprActorMetadata?.interfaceType?.constructor.name;
 
-    // The option typeNamePrefix allows you to specify a prefix for the actor type name
-    // For example CounterActor with prefix of 'Prod' would be ProdCounterActor
-    // This is useful in scenarios where environments may share the same placement service
-    if (this.options.actorOptions?.typeNamePrefix) {
-      actorTypeName = this.options.actorOptions.typeNamePrefix + actorTypeName;
-      // Register using a custom actor manager
-      try {
-        const actorManager = ActorRuntime.getInstanceByDaprClient(this.daprServer.client);
-        const managers = actorManager['actorManagers'] as Map<string, ActorManager<any>>;
-        if (!managers.has(actorTypeName)) {
-          managers.set(actorTypeName, new ActorManager(actorType as Class<AbstractActor>, this.daprServer.client));
-        }
-      } catch (err) {
-        await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
-      }
-    } else {
-      // Register as normal
-      await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
-    }
+    await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
 
     this.logger.log(`Registering Dapr Actor: ${actorTypeName} of type ${interfaceTypeName ?? 'unknown'}`);
 
