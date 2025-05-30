@@ -1,9 +1,10 @@
+process.env.DAPR_WORKFLOW_ENABLED = 'true'; // Enable Dapr workflow just for this test
+
 import { Test, TestingModule } from '@nestjs/testing';
 import { TestModule } from './e2e/test.module';
 import { DaprClient, DaprServer } from '@dapr/dapr';
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { sleep } from './test.utils';
 import { DaprWorkflowClient } from '../lib/workflow/dapr-workflow-client.service';
 import { HelloWorkflow } from './src/hello-workflow';
 import { workflowOutput } from '../lib/workflow/workflow';

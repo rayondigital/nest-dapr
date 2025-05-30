@@ -8,8 +8,6 @@ import { DaprActorClient, DaprPubSubClient } from '../lib';
 import { StatelessPubSubActorInterface } from './src/stateless-pubsub.actor';
 import { DaprEventEmitter } from '../lib/dapr-event-emitter.service';
 
-process.env.DAPR_WORKFLOW_ENABLED = 'true'; // Enable Dapr workflow for this test
-
 // To run inside Dapr use:
 // dapr run --app-id nest-dapr --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test -- pubsub
 describe('DaprPubSubActor', () => {

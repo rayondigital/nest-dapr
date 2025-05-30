@@ -8,7 +8,7 @@
     "build": "rimraf -rf dist && tsc -p tsconfig.json",
     "lint": "eslint \"{lib,tests}/**/*.ts\" --fix",
     "test": "jest --runInBand",
-    "test:in-memory": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --resources-path ./tests/components npm run test",
+    "test:in-memory": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components npm run test",
     "start:test": "nodemon tests/e2e/main.ts",
     "push:version": "git push --follow-tags"
   },
