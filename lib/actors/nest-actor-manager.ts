@@ -164,6 +164,11 @@ export class NestActorManager {
         if (error.stack) {
           Logger.error(error.stack);
         }
+        if (SerializableError.isSerializableError(error)) {
+          // If the error is a SerializableError, we can set the status code
+          error.statusCode = error.statusCode ?? HttpStatusCode.BAD_REQUEST;
+          return error;
+        }
         throw error;
       }
     };
