@@ -74,18 +74,6 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       // Setup the actor client (based on the options provided)
       if (this.options.actorOptions) {
         this.daprActorClient.setAllowInternalCalls(this.options.actorOptions?.allowInternalCalls ?? false);
-        this.daprActorClient.setPrefix(
-          this.options.actorOptions?.prefix ?? '',
-          this.options.actorOptions?.delimiter ?? '-',
-        );
-        this.daprActorClient.setTypeNamePrefix(this.options.actorOptions?.typeNamePrefix ?? '');
-        if (this.options.actorOptions?.prefix) {
-          this.logger.log(
-            `Actors will be prefixed with ${this.options.actorOptions?.prefix ?? ''} and delimited with ${
-              this.options.actorOptions?.delimiter ?? '-'
-            }`,
-          );
-        }
       }
     }
 

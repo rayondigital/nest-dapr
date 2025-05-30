@@ -12,9 +12,6 @@ export class DaprActorClient {
   private interfaces: Map<string, Type<any> | Function> = new Map();
   // Keys are the interface name in lower case and values are the actor type names in lower case
   private interfaceToActorTypeNames: Map<string, string> = new Map();
-  private prefix = '';
-  private delimiter = '-';
-  private typeNamePrefix = '';
   private allowInternalCalls: boolean;
 
   constructor(private readonly moduleRef: ModuleRef, private readonly daprClient: DaprClient) {
@@ -23,15 +20,6 @@ export class DaprActorClient {
 
   setAllowInternalCalls(allowInternalCalls: boolean): void {
     this.allowInternalCalls = allowInternalCalls;
-  }
-
-  setPrefix(prefix: string, delimiter = '-'): void {
-    this.prefix = prefix;
-    this.delimiter = delimiter;
-  }
-
-  setTypeNamePrefix(prefix: string): void {
-    this.typeNamePrefix = prefix;
   }
 
   register<T>(actorTypeName: string, actorType: Type<T> | Function, daprClient?: DaprClient): void {
@@ -59,9 +47,6 @@ export class DaprActorClient {
   getActorId(actorId: string): ActorId {
     if (!actorId) {
       throw new Error('Actor id must be provided');
-    }
-    if (this.prefix) {
-      return new ActorId(`${this.prefix}${this.delimiter ?? '-'}${actorId}`);
     }
     return new ActorId(actorId);
   }
@@ -107,16 +92,7 @@ export class DaprActorClient {
   getActorTypeName(typeName: string): string {
     // The input could be an interface so look up the actor type name
     if (this.interfaceToActorTypeNames.has(typeName)) {
-      const actorTypeName = this.interfaceToActorTypeNames.get(typeName);
-      if (this.actorProxyBuilders.has(actorTypeName)) {
-        return actorTypeName;
-      } else {
-        return `${this.typeNamePrefix}${actorTypeName}`;
-      }
-    }
-    // If a prefix is required use it
-    if (this.typeNamePrefix) {
-      return `${this.typeNamePrefix}${typeName}`;
+      return this.interfaceToActorTypeNames.get(typeName);
     }
     return typeName;
   }
