@@ -1,6 +1,4 @@
 import { AbstractActor, DaprPubSubStatusEnum, DaprServer, WorkflowRuntime } from '@dapr/dapr';
-import ActorManager from '@dapr/dapr/actors/runtime/ActorManager';
-import ActorRuntime from '@dapr/dapr/actors/runtime/ActorRuntime';
 import Class from '@dapr/dapr/types/Class';
 import { Inject, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown, Type } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
