@@ -294,33 +294,13 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
   private async registerActor<T>(actorType: Type<T> | Function) {
     if (!actorType) return;
 
-    let actorTypeName = actorType.name ?? actorType.constructor.name;
-
     // We need to get the @DaprActor decorator metadata
     const daprActorMetadata = this.daprMetadataAccessor.getDaprActorMetadata(actorType);
-
+    const actorTypeName = actorType.name ?? actorType.constructor.name;
     const interfaceTypeName =
       daprActorMetadata?.interfaceType?.name ?? daprActorMetadata?.interfaceType?.constructor.name;
 
-    // The option typeNamePrefix allows you to specify a prefix for the actor type name
-    // For example CounterActor with prefix of 'Prod' would be ProdCounterActor
-    // This is useful in scenarios where environments may share the same placement service
-    if (this.options.actorOptions?.typeNamePrefix) {
-      actorTypeName = this.options.actorOptions.typeNamePrefix + actorTypeName;
-      // Register using a custom actor manager
-      try {
-        const actorManager = ActorRuntime.getInstanceByDaprClient(this.daprServer.client);
-        const managers = actorManager['actorManagers'] as Map<string, ActorManager<any>>;
-        if (!managers.has(actorTypeName)) {
-          managers.set(actorTypeName, new ActorManager(actorType as Class<AbstractActor>, this.daprServer.client));
-        }
-      } catch (err) {
-        await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
-      }
-    } else {
-      // Register as normal
-      await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
-    }
+    await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
 
     this.logger.log(`Registering Dapr Actor: ${actorTypeName} of type ${interfaceTypeName ?? 'unknown'}`);
 
