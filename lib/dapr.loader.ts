@@ -59,9 +59,9 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       this.pubSubClient.setDefaultName(this.options.pubsubOptions.defaultName);
     }
 
-    if (isActorsEnabled) {
-      this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
+    await this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
 
+    if (isActorsEnabled) {
       // Hook into the Dapr Actor Manager
       this.actorManager.setup(this.moduleRef, this.options);
       // Setup CLS/ALS for async context propagation
@@ -153,61 +153,49 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     }
   }
 
-  loadDaprHandlers(isActorsEnabled: boolean, isWorkflowEnabled: boolean) {
+  async loadDaprHandlers(isActorsEnabled: boolean, isWorkflowEnabled: boolean) {
     const providers = this.discoveryService.getProviders();
 
     // Find and register actors
     if (isActorsEnabled) {
-      providers
-        .filter(
-          (wrapper) =>
-            wrapper.isDependencyTreeStatic() &&
-            wrapper.metatype &&
-            this.daprMetadataAccessor.getDaprActorMetadata(wrapper.metatype),
-        )
-        .forEach(async (wrapper) => {
-          await this.registerActor(wrapper.metatype);
-        });
+      for (const instanceWrapper of providers.filter(
+        (wrapper) =>
+          wrapper.isDependencyTreeStatic() &&
+          wrapper.metatype &&
+          this.daprMetadataAccessor.getDaprActorMetadata(wrapper.metatype),
+      )) {
+        await this.registerActor(instanceWrapper.metatype);
+      }
     }
 
     // Find and register pubsub and binding handlers
     const controllers = this.discoveryService.getControllers();
-    [...providers, ...controllers]
+    for (const instanceWrapper of [...providers, ...controllers]
       .filter((wrapper) => wrapper.isDependencyTreeStatic())
-      .filter((wrapper) => wrapper.instance)
-      .forEach(async (wrapper: InstanceWrapper) => {
-        const { instance } = wrapper;
-        const prototype = Object.getPrototypeOf(instance) || {};
-        this.metadataScanner.scanFromPrototype(instance, prototype, async (methodKey: string) => {
-          await this.subscribeToDaprPubSubEventIfListener(instance, methodKey);
-          await this.subscribeToDaprBindingEventIfListener(instance, methodKey);
-        });
-      });
+      .filter((wrapper) => wrapper.instance)) {
+      await this.registerHandlers(instanceWrapper);
+    }
 
     // Find and register workflow activities
     if (isWorkflowEnabled) {
-      providers
-        .filter(
-          (wrapper) =>
-            wrapper.isDependencyTreeStatic() &&
-            wrapper.metatype &&
-            this.daprMetadataAccessor.getDaprActivityMetadata(wrapper.metatype),
-        )
-        .forEach(async (wrapper) => {
-          await this.registerActivity(wrapper.metatype);
-        });
+      for (const instanceWrapper of providers.filter(
+        (wrapper) =>
+          wrapper.isDependencyTreeStatic() &&
+          wrapper.metatype &&
+          this.daprMetadataAccessor.getDaprActivityMetadata(wrapper.metatype),
+      )) {
+        await this.registerActivity(instanceWrapper.metatype);
+      }
 
       // Find and register workflow orchestrations
-      providers
-        .filter(
-          (wrapper) =>
-            wrapper.isDependencyTreeStatic() &&
-            wrapper.metatype &&
-            this.daprMetadataAccessor.getDaprWorkflowMetadata(wrapper.metatype),
-        )
-        .forEach(async (wrapper) => {
-          await this.registerWorkflow(wrapper.metatype);
-        });
+      for (const instanceWrapper of providers.filter(
+        (wrapper) =>
+          wrapper.isDependencyTreeStatic() &&
+          wrapper.metatype &&
+          this.daprMetadataAccessor.getDaprWorkflowMetadata(wrapper.metatype),
+      )) {
+        await this.registerWorkflow(instanceWrapper.metatype);
+      }
     }
   }
 
@@ -265,6 +253,15 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     this.logger.log(`Registering Dapr binding: ${name}`);
     await this.daprServer.binding.receive(name, async (data: any) => {
       await instance[methodKey].call(instance, data);
+    });
+  }
+
+  private async registerHandlers(instanceWrapper: InstanceWrapper) {
+    const instance = instanceWrapper.instance;
+    const prototype = Object.getPrototypeOf(instance) || {};
+    this.metadataScanner.scanFromPrototype(instance, prototype, async (methodKey: string) => {
+      await this.subscribeToDaprPubSubEventIfListener(instance, methodKey);
+      await this.subscribeToDaprBindingEventIfListener(instance, methodKey);
     });
   }
 
