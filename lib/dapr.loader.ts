@@ -191,7 +191,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
       return;
     }
     const name = daprPubSubMetadata.name ?? this.options.pubsubOptions?.defaultName;
-    const { topicName, route } = daprPubSubMetadata;
+    const { topicName, route, metadata } = daprPubSubMetadata;
 
     this.logger.log(`Subscribing to Dapr: ${name}, Topic: ${topicName}${route ? ' on route ' + route : ''}`);
     await this.daprServer.pubsub.subscribe(
@@ -226,6 +226,7 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
         }
       },
       route,
+      metadata,
     );
   }
 

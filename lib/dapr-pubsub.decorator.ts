@@ -1,3 +1,4 @@
+import { KeyValueType } from '@dapr/dapr/types/KeyValue.type';
 import { SetMetadata } from '@nestjs/common';
 import { DAPR_PUBSUB_METADATA } from './constants';
 
@@ -19,6 +20,12 @@ export interface DaprPubSubMetadata {
    * Route to use.
    */
   route?: string;
+
+  /**
+   * Optional metadata to pass with the pubsub message.
+   * See https://docs.dapr.io/reference/components-reference/supported-pubsub/setup-azure-servicebus-topics/
+   */
+  metadata?: KeyValueType;
 }
 
 /**
