@@ -2,6 +2,8 @@ import { IState, StatefulActor } from '../../lib/actors/stateful.actor';
 import { DaprActor, State } from '../../lib';
 import { Inject } from '@nestjs/common';
 import { CacheService } from './cache.service';
+import { ContextAwareActorInterface } from './context-aware.actor';
+import { GlobalCounterActorInterface } from './global-counter.actor';
 
 export abstract class CounterActorInterface {
   abstract increment(): Promise<void>;
@@ -51,6 +53,10 @@ export class CounterActor extends StatefulActor implements CounterActorInterface
     // Use a NestJS service as an example.
     // Share in memory state between actors on this node.
     await this.cacheService.increment('total');
+
+    const nested = this.client.getActor(GlobalCounterActorInterface, 'global-0');
+    await nested.increment();
+
     await this.saveState();
   }
 

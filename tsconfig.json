@@ -8,8 +8,9 @@
     "emitDecoratorMetadata": true,
     "esModuleInterop": true,
     "experimentalDecorators": true,
+    "allowSyntheticDefaultImports": true,
     "target": "es6",
-    "sourceMap": false,
+    "sourceMap": true,
     "outDir": "./dist",
     "skipLibCheck": true
   },

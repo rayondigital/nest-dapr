@@ -21,6 +21,7 @@ import { DaprPubSub, DaprPubSubMetadata } from './dapr-pubsub.decorator';
 import { DaprLoader } from './dapr.loader';
 import { DaprContextProvider, DaprModule } from './dapr.module';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
+import { getTraceId, withExtractedContext, withTracedContext } from './opentelemetry/trace';
 
 export {
   DAPR_BINDING_METADATA,
@@ -49,4 +50,7 @@ export {
   IState,
   SerializableError,
   DaprActorOnEvent,
+  getTraceId,
+  withTracedContext,
+  withExtractedContext,
 };

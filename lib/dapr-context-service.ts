@@ -1,6 +1,7 @@
 import { randomBytes, randomUUID } from 'crypto';
 import { Injectable } from '@nestjs/common';
 import { CLS_ID, ClsService, ClsServiceManager } from 'nestjs-cls';
+import { getTraceId } from './opentelemetry/trace';
 
 export const DAPR_CONTEXT_KEY = 'context';
 export const DAPR_CORRELATION_ID_KEY = 'correlationId';
@@ -42,11 +43,22 @@ export class DaprContextService {
   getTraceId(createIfNotDefined = false) {
     const byKey = this.getByKey<string>(DAPR_TRACE_ID_KEY);
     if (byKey) return byKey;
+
     const context = this.get<any>();
     if (context && context[DAPR_TRACE_ID_KEY]) {
       return context[DAPR_TRACE_ID_KEY];
     }
-    if (createIfNotDefined) return this.setTraceIdIfNotDefined();
+
+    if (createIfNotDefined) {
+      const traceId = this.tryGetOpenTelemetryTraceId();
+      if (traceId) {
+        this.setTraceId(traceId);
+        return traceId;
+      }
+
+      return this.setTraceIdIfNotDefined();
+    }
+
     return undefined;
   }
 
@@ -110,6 +122,14 @@ export class DaprContextService {
       return contextObject;
     } catch (error) {
       // We don't want to throw an error if the context is not set.
+      return undefined;
+    }
+  }
+
+  private tryGetOpenTelemetryTraceId(): string | undefined {
+    try {
+      return getTraceId();
+    } catch (error) {
       return undefined;
     }
   }

@@ -1,4 +1,5 @@
 import { CommunicationProtocolEnum, LogLevel } from '@dapr/dapr';
+import { ClsModule } from 'nestjs-cls';
 import { Module } from '@nestjs/common';
 import { DaprModule } from '../../lib';
 import { StatelessCounterActor } from '../src/stateless-counter.actor';
@@ -7,15 +8,12 @@ import { CacheService } from '../src/cache.service';
 import { CounterController } from './counter.controller';
 import { ContextAwareActor } from '../src/context-aware.actor';
 import { StatelessPubSubActor } from '../src/stateless-pubsub.actor';
-import { ClsModule } from 'nestjs-cls';
 import { DaprContextProvider } from '../../lib/dapr.module';
-import { registerTracerProvider } from '../trace.setup';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../../lib/dapr-context-service';
 import { CreateEntityActivity, GetEntityActivity, HelloActivity, HelloWorkflow } from '../src/hello-workflow';
 import { EntityService } from '../src/entity.service';
 import { StatefulReminderActor } from '../src/stateful-reminder.actor';
-
-registerTracerProvider('http://localhost:4318/v1/traces');
+import { GlobalCounterActor } from '../src/global-counter.actor';
 
 @Module({
   imports: [
@@ -77,6 +75,7 @@ registerTracerProvider('http://localhost:4318/v1/traces');
     CounterActor,
     StatefulReminderActor,
     ContextAwareActor,
+    GlobalCounterActor,
     StatelessPubSubActor,
     HelloActivity,
     CreateEntityActivity,

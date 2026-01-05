@@ -30,6 +30,13 @@ export interface DaprModuleOptions {
   logging?: DaprModuleLoggingOptions;
   catchErrors?: boolean;
   extraProviders?: Provider[];
+  handlers?: DaprModuleHandlers;
+}
+
+export interface DaprModuleHandlers {
+  onInitialized?: (options?: DaprModuleOptions) => Promise<void>;
+  onServerStarting?: (server: DaprServer) => Promise<void>;
+  onServerStarted?: (server: DaprServer) => Promise<void>;
 }
 
 export interface DaprModuleLoggingOptions {

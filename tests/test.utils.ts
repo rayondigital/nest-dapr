@@ -2,7 +2,7 @@ import { randomUUID, randomBytes } from 'crypto';
 import { CLS_ID, ClsService, ClsServiceManager } from 'nestjs-cls';
 import { ClsStore } from 'nestjs-cls/dist/src/lib/cls.options';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../lib/dapr-context-service';
-import { withTracedContext } from '../lib/opentelemetry/trace';
+import { getTraceId, withTracedContext } from '../lib/opentelemetry/trace';
 
 /**
  * Waits for an array to be populated with at least one element, or times out.
@@ -163,6 +163,9 @@ export function itWithContextOf(
 }
 
 export function randomTraceId(): string {
+  const existingTraceId = getTraceId();
+  if (existingTraceId) return existingTraceId;
+
   const version = '00'; // Current version
   const traceId = randomBytes(16).toString('hex');
   const spanId = randomBytes(8).toString('hex');
