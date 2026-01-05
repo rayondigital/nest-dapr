@@ -1,6 +1,14 @@
 import { AbstractActor, DaprPubSubStatusEnum, DaprServer, WorkflowRuntime } from '@dapr/dapr';
 import Class from '@dapr/dapr/types/Class';
-import { Inject, Injectable, Logger, OnApplicationBootstrap, OnApplicationShutdown, Type } from '@nestjs/common';
+import {
+  Inject,
+  Injectable,
+  Logger,
+  OnApplicationBootstrap,
+  OnApplicationShutdown,
+  OnModuleInit,
+  Type,
+} from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { DaprActorClient } from './actors/dapr-actor-client.service';
@@ -14,7 +22,7 @@ import { lazyWorkflow, Workflow } from './workflow/workflow';
 import { lazyActivity, WorkflowActivity } from './workflow/workflow-activity';
 
 @Injectable()
-export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown {
+export class DaprLoader implements OnModuleInit, OnApplicationBootstrap, OnApplicationShutdown {
   private readonly logger = new Logger(DaprLoader.name);
   private workflowRuntime: WorkflowRuntime;
 
@@ -33,12 +41,35 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
     private readonly actorManager: NestActorManager,
   ) {}
 
+  async onModuleInit() {
+    if (this.options.handlers?.onInitialized) {
+      await this.options.handlers.onInitialized(this.options);
+    }
+  }
+
   async onApplicationBootstrap() {
     this.logger.log('Dapr initializing');
 
     const isEnabled = !this.options.disabled;
     const isActorsEnabled = this.options.actorOptions?.enabled ?? true;
     const isWorkflowEnabled = this.options.workflowOptions?.enabled ?? false;
+
+    // Hook into Dapr functions (patch them to support context propagation, reentrancy, otel, etc.)
+    if (isActorsEnabled) {
+      // Hook into the Dapr Actor Manager
+      this.actorManager.setup(this.moduleRef, this.options);
+      // Setup CLS/ALS for async context propagation
+      if (this.options.contextProvider !== DaprContextProvider.None) {
+        this.actorManager.setupCSLWrapper(this.options, this.contextService);
+      }
+      if (this.options.clientOptions?.actor?.reentrancy?.enabled) {
+        this.actorManager.setupReentrancy(this.options);
+      }
+      // Setup the actor client (based on the options provided)
+      if (this.options.actorOptions) {
+        this.daprActorClient.setAllowInternalCalls(this.options.actorOptions?.allowInternalCalls ?? false);
+      }
+    }
 
     if (isActorsEnabled && isEnabled) {
       this.logger.log('Registering Dapr actors');
@@ -59,22 +90,6 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
 
     await this.loadDaprHandlers(isActorsEnabled, isWorkflowEnabled);
 
-    if (isActorsEnabled) {
-      // Hook into the Dapr Actor Manager
-      this.actorManager.setup(this.moduleRef, this.options);
-      // Setup CLS/ALS for async context propagation
-      if (this.options.contextProvider !== DaprContextProvider.None) {
-        this.actorManager.setupCSLWrapper(this.options, this.contextService);
-      }
-      if (this.options.clientOptions?.actor?.reentrancy?.enabled) {
-        this.actorManager.setupReentrancy(this.options);
-      }
-      // Setup the actor client (based on the options provided)
-      if (this.options.actorOptions) {
-        this.daprActorClient.setAllowInternalCalls(this.options.actorOptions?.allowInternalCalls ?? false);
-      }
-    }
-
     if (isEnabled && this.options.serverPort !== '0') {
       this.logger.log('Starting Dapr server');
 
@@ -93,6 +108,11 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
         }
       }
 
+      // Allow middleware to be run before the server starts
+      if (this.options.handlers?.onServerStarting) {
+        await this.options.handlers.onServerStarting(this.daprServer);
+      }
+
       await this.daprServer.start();
       this.logger.log('Dapr server started');
     }
@@ -104,6 +124,10 @@ export class DaprLoader implements OnApplicationBootstrap, OnApplicationShutdown
         daprHost: this.options.serverHost,
         daprPort: this.options.workflowOptions.daprPort ?? '3501',
       });
+    }
+
+    if (this.options.handlers?.onServerStarted) {
+      await this.options.handlers.onServerStarted(this.daprServer);
     }
 
     if (!isActorsEnabled || !isEnabled) return;

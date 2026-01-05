@@ -6,6 +6,8 @@ import { StatelessCounterActorInterface } from './src/stateless-counter.actor';
 import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
 import { CounterActorInterface } from './src/counter.actor';
 import { CacheService } from './src/cache.service';
+import { ClsService } from 'nestjs-cls';
+import { itWithContext } from './test.utils';
 
 // To run inside Dapr use:
 // dapr run --app-id nest-dapr --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test -- client
@@ -16,6 +18,7 @@ describe('DaprActorClient', () => {
   let daprClient: DaprClient;
   let daprActorClient: DaprActorClient;
   let cacheService: CacheService;
+  let contextService: ClsService;
 
   beforeAll(async () => {
     testingModule = await Test.createTestingModule({
@@ -28,6 +31,7 @@ describe('DaprActorClient', () => {
     daprClient = testingModule.get(DaprClient);
     cacheService = testingModule.get(CacheService);
     daprActorClient = testingModule.get(DaprActorClient);
+    contextService = app.get<ClsService>(ClsService);
 
     expect(daprClient).toBeDefined();
     expect(cacheService).toBeDefined();
@@ -35,7 +39,7 @@ describe('DaprActorClient', () => {
   });
 
   describe('stateStore', () => {
-    it('should store a single value', async () => {
+    itWithContext('should store a single value', contextService, async () => {
       await daprClient.state.save('statestore', [
         {
           key: 'hello',
@@ -47,8 +51,8 @@ describe('DaprActorClient', () => {
     });
   });
 
-  describe('callActor', () => {
-    it('should call a stateless actor', async () => {
+  describe('call stateless', () => {
+    itWithContext('should call a stateless actor', contextService, async () => {
       const actor = daprActorClient.getActor(StatelessCounterActorInterface, 'stateless-1');
       await actor.reset();
       const initialValue = await actor.getCounter();
@@ -61,8 +65,10 @@ describe('DaprActorClient', () => {
       const secondValue = await actor.getCounter();
       expect(secondValue).toBe(initialValue + 2);
     });
+  });
 
-    it('should call a stateful actor', async () => {
+  describe('call stateful', () => {
+    itWithContext('should call a stateful actor', contextService, async () => {
       const actor = daprActorClient.getActor(CounterActorInterface, 'stateful-1');
       await actor.reset();
       const initialValue = await actor.getCounter();

@@ -11,6 +11,7 @@ import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY, DaprContextService } from '../dapr-context-service';
 import { DaprModuleOptions } from '../dapr.module';
 import { SerializableError } from './serializable-error';
+import { withExtractedContext } from '../opentelemetry/trace';
 
 @Injectable()
 export class NestActorManager {
@@ -194,27 +195,29 @@ export class NestActorManager {
     // eslint-disable-next-line
     // @ts-ignore
     HTTPServerActor.prototype.handlerMethod = async function (req: any, res: any) {
-      try {
-        const { actorTypeName, actorId, methodName } = req.params;
-        const body = req.body;
-        const dataSerialized = this.serializer.serialize(body);
-        const result = await ActorRuntime.getInstance(this.client.daprClient).invoke(
-          actorTypeName,
-          actorId,
-          methodName,
-          dataSerialized,
-        );
-        res.statusCode = HttpStatusCode.OK;
-        return this.handleResult(res, result);
-      } catch (error) {
-        if (error instanceof SerializableError) {
-          // The serializable error should contain the status code or default to 400
-          error.statusCode = error.statusCode ?? HttpStatusCode.BAD_REQUEST;
-        } else if (error instanceof Error) {
-          res.statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+      await withExtractedContext(req.headers, async () => {
+        try {
+          const { actorTypeName, actorId, methodName } = req.params;
+          const body = req.body;
+          const dataSerialized = this.serializer.serialize(body);
+          const result = await ActorRuntime.getInstance(this.client.daprClient).invoke(
+            actorTypeName,
+            actorId,
+            methodName,
+            dataSerialized,
+          );
+          res.statusCode = HttpStatusCode.OK;
+          return this.handleResult(res, result);
+        } catch (error) {
+          if (error instanceof SerializableError) {
+            // The serializable error should contain the status code or default to 400
+            error.statusCode = error.statusCode ?? HttpStatusCode.BAD_REQUEST;
+          } else if (error instanceof Error) {
+            res.statusCode = HttpStatusCode.INTERNAL_SERVER_ERROR;
+          }
+          return this.handleResult(res, error);
         }
-        return this.handleResult(res, error);
-      }
+      });
     };
   }
 
