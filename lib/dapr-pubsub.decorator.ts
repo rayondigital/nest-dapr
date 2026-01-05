@@ -19,6 +19,11 @@ export interface DaprPubSubMetadata {
    * Route to use.
    */
   route?: string;
+
+  /**
+   * Metadata (optional)
+   */
+  metadata?: any;
 }
 
 /**
