@@ -8,7 +8,7 @@ import { StatefulReminderActorInterface } from './src/stateful-reminder.actor';
 import { sleep } from './test.utils';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// Emulator mode (default): npm run test -- reminder
+// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- reminder
 // Real sidecar: DAPR_TEST_MODE=real npm run test -- reminder
 describe('DaprActorReminder', () => {
   let sidecar: SidecarContext;

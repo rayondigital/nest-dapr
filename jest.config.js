@@ -13,8 +13,11 @@ module.exports = {
       {
         tsconfig: 'tests/tsconfig.test.json',
         isolatedModules: true,
+        diagnostics: false,
       },
     ],
   },
-  preset: `ts-jest/presets/js-with-ts`,
+  // node-fetch v3+ is pure ESM with no CJS build - must be transformed.
+  // (transforming them causes thousands of allowJs warnings and is wasteful).
+  transformIgnorePatterns: ['/node_modules/(?!(node-fetch|@js-temporal|@bufbuild|@connectrpc)/)'],
 };

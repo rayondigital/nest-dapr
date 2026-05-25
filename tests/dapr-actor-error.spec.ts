@@ -7,7 +7,7 @@ import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
 import { SerializableError } from '../lib';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// Emulator mode (default): npm run test
+// Emulator mode: DAPR_TEST_MODE=emulator npm run test
 // Real sidecar: DAPR_TEST_MODE=real npm run test
 describe('DaprActor', () => {
   let sidecar: SidecarContext;

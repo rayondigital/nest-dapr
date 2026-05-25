@@ -9,7 +9,7 @@ import { DaprContextService } from '../lib';
 import { itWithContext, sleep } from './test.utils';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// Emulator mode (default): npm run test -- context
+// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- context
 // Real sidecar: DAPR_TEST_MODE=real npm run test -- context
 describe('DaprActorContext', () => {
   let sidecar: SidecarContext;
