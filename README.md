@@ -608,6 +608,14 @@ export class AppService {
 |---|-------------------------------------------------------------------------|
 | [Basics](examples/basics/README.md) | Demonstrates a very basic actors, pubsub & input binding using RabbitMQ |
 
+# Dapr Server
+
+Whilst testing you will need to run a Dapr sidecar:
+
+- HTTP Transport `dapr run --app-id nest-dapr --app-protocol http --dapr-http-port 3500 --app-port 3001 --log-level debug`
+- gRPC Transport `dapr run --app-id nest-dapr --app-protocol grpc --dapr-grpc-port 3501 --app-port 3001 --log-level debug`
+- Dual Mode (HTTP and gRPC) `dapr run --app-id nest-dapr --dapr-http-port 3500 --dapr-grpc-port 3501 --app-port 3001 --app-protocol grpc --app-protocol http`
+
 # Troubleshooting
 
 [Dapr](https://dapr.io/) is a complex set of tools and services and must be set-up and deployed carefully to ensure your system operates correctly. 
