@@ -31,11 +31,14 @@ import { PubSubReceiverService } from './pubsub.service';
           onError: () => DaprPubSubStatusEnum.RETRY,
           serverHost: configService.get('DAPR_SERVER_HOST') ?? 'localhost',
           serverPort: configService.get('DAPR_SERVER_PORT') ?? '3001',
+          communicationProtocol:
+            configService.get('DAPR_SERVER_COMMUNICATION_PROTOCOL') ??
+            CommunicationProtocolEnum.HTTP,
           clientOptions: {
             daprHost: configService.get('DAPR_HOST'),
             daprPort: configService.get('DAPR_PORT'),
             communicationProtocol:
-              configService.get('DAPR_COMMUNICATION_PROTOCOL') ??
+              configService.get('DAPR_CLIENT_COMMUNICATION_PROTOCOL') ??
               CommunicationProtocolEnum.HTTP,
             actor: {
               reentrancy: {
@@ -48,9 +51,6 @@ import { PubSubReceiverService } from './pubsub.service';
             contextProvider: DaprContextProvider.NestCLS,
             catchErrors: true,
           },
-          communicationProtocol:
-            configService.get('DAPR_COMMUNICATION_PROTOCOL') ??
-            CommunicationProtocolEnum.HTTP,
         };
       },
       imports: [ClsModule, ConfigModule],

@@ -9,12 +9,13 @@ import { CacheService } from '../src/cache.service';
 import { CounterController } from './counter.controller';
 import { ContextAwareActor } from '../src/context-aware.actor';
 import { StatelessPubSubActor } from '../src/stateless-pubsub.actor';
-import { DaprContextProvider } from '../../lib/dapr.module';
+import { DaprContextProvider } from '../../lib';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../../lib/dapr-context-service';
 import { CreateEntityActivity, GetEntityActivity, HelloActivity, HelloWorkflow } from '../src/hello-workflow';
 import { EntityService } from '../src/entity.service';
 import { StatefulReminderActor } from '../src/stateful-reminder.actor';
 import { GlobalCounterActor } from '../src/global-counter.actor';
+import { parseDaprCommunicationProtocol, getDaprPort } from '../../lib/environment';
 
 @Module({
   imports: [
@@ -36,41 +37,52 @@ import { GlobalCounterActor } from '../src/global-counter.actor';
     // not at import time — this allows SidecarContext.start() to set them first.
     DaprModule.registerAsync({
       imports: [],
-      useFactory: (): DaprModuleOptions => ({
-        serverHost: '127.0.0.1',
-        serverPort: process.env.DAPR_SERVER_PORT ?? '3001',
-        communicationProtocol: CommunicationProtocolEnum.HTTP,
-        clientOptions: {
-          daprHost: '127.0.0.1',
-          daprPort: process.env.DAPR_HTTP_PORT ?? '3500',
-          communicationProtocol: CommunicationProtocolEnum.HTTP,
-          logger: {
-            level: LogLevel.Verbose,
-          },
-          isKeepAlive: true,
-          actor: {
-            reentrancy: {
-              enabled: true,
-              maxStackDepth: 32,
+      useFactory: (): DaprModuleOptions => {
+        // Determine the communication protocol
+        const serverCommunicationProtocol = parseDaprCommunicationProtocol(
+          process.env.DAPR_SERVER_COMMUNICATION_PROTOCOL,
+        );
+        const clientCommunicationProtocol = parseDaprCommunicationProtocol(
+          process.env.DAPR_CLIENT_COMMUNICATION_PROTOCOL,
+        );
+        const clientPort = getDaprPort(clientCommunicationProtocol);
+
+        return {
+          serverHost: '127.0.0.1',
+          serverPort: process.env.DAPR_SERVER_PORT ?? '3001',
+          communicationProtocol: serverCommunicationProtocol,
+          clientOptions: {
+            daprHost: '127.0.0.1',
+            daprPort: clientPort,
+            communicationProtocol: clientCommunicationProtocol,
+            logger: {
+              level: LogLevel.Verbose,
             },
-            drainRebalancedActors: true,
-            actorIdleTimeout: '30s',
-            actorScanInterval: '30s',
+            isKeepAlive: true,
+            actor: {
+              reentrancy: {
+                enabled: true,
+                maxStackDepth: 32,
+              },
+              drainRebalancedActors: true,
+              actorIdleTimeout: '30s',
+              actorScanInterval: '30s',
+            },
           },
-        },
-        actorOptions: {
-          enabled: true,
-          allowInternalCalls: false,
-        },
-        workflowOptions: {
-          enabled: process.env.DAPR_WORKFLOW_ENABLED === 'true',
-          daprPort: process.env.DAPR_GRPC_PORT ?? '3501',
-        },
-        logging: {
-          enabled: true,
-        },
-        contextProvider: DaprContextProvider.NestCLS,
-      }),
+          actorOptions: {
+            enabled: true,
+            allowInternalCalls: false,
+          },
+          workflowOptions: {
+            enabled: process.env.DAPR_WORKFLOW_ENABLED === 'true',
+            daprPort: process.env.DAPR_GRPC_PORT ?? '3501',
+          },
+          logging: {
+            enabled: true,
+          },
+          contextProvider: DaprContextProvider.NestCLS,
+        };
+      },
     }),
   ],
   controllers: [CounterController],
