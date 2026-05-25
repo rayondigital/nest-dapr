@@ -8,10 +8,12 @@ import { CounterActorInterface } from './src/counter.actor';
 import { CacheService } from './src/cache.service';
 import { ClsService } from 'nestjs-cls';
 import { itWithContext } from './test.utils';
+import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// To run inside Dapr use:
-// dapr run --app-id nest-dapr --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test -- client
+// Emulator mode (default): npm run test -- client
+// Real sidecar: DAPR_TEST_MODE=real npm run test -- client
 describe('DaprActorClient', () => {
+  let sidecar: SidecarContext;
   let testingModule: TestingModule;
   let app: INestApplication;
   let daprServer: DaprServer;
@@ -21,12 +23,14 @@ describe('DaprActorClient', () => {
   let contextService: ClsService;
 
   beforeAll(async () => {
+    sidecar = await SidecarContext.start();
+
     testingModule = await Test.createTestingModule({
       imports: [TestModule],
     }).compile();
     app = testingModule.createNestApplication();
     await app.init();
-    await app.listen(3000);
+    await app.listen(0);
     daprServer = app.get<DaprServer>(DaprServer);
     daprClient = testingModule.get(DaprClient);
     cacheService = testingModule.get(CacheService);
@@ -88,5 +92,6 @@ describe('DaprActorClient', () => {
     await app.close();
     await app.getHttpServer().close();
     await daprServer.stop();
+    await sidecar?.stop();
   });
 });

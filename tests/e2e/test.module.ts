@@ -2,6 +2,7 @@ import { CommunicationProtocolEnum, LogLevel } from '@dapr/dapr';
 import { ClsModule } from 'nestjs-cls';
 import { Module } from '@nestjs/common';
 import { DaprModule } from '../../lib';
+import { DaprModuleOptions } from '../../lib/dapr.module';
 import { StatelessCounterActor } from '../src/stateless-counter.actor';
 import { CounterActor } from '../src/counter.actor';
 import { CacheService } from '../src/cache.service';
@@ -31,40 +32,45 @@ import { GlobalCounterActor } from '../src/global-counter.actor';
         },
       },
     }),
-    DaprModule.register({
-      serverHost: '127.0.0.1',
-      serverPort: process.env.PORT ?? '3001', // This is the LOCAL server
-      communicationProtocol: CommunicationProtocolEnum.HTTP,
-      clientOptions: {
-        daprHost: '127.0.0.1',
-        daprPort: process.env.DAPR_PORT ?? '3500', // This is the SIDECAR server
+    // registerAsync with useFactory so env vars are read at compile() time,
+    // not at import time — this allows SidecarContext.start() to set them first.
+    DaprModule.registerAsync({
+      imports: [],
+      useFactory: (): DaprModuleOptions => ({
+        serverHost: '127.0.0.1',
+        serverPort: process.env.DAPR_SERVER_PORT ?? '3001',
         communicationProtocol: CommunicationProtocolEnum.HTTP,
-        logger: {
-          level: LogLevel.Verbose,
-        },
-        isKeepAlive: true,
-        actor: {
-          reentrancy: {
-            enabled: true,
-            maxStackDepth: 32,
+        clientOptions: {
+          daprHost: '127.0.0.1',
+          daprPort: process.env.DAPR_HTTP_PORT ?? '3500',
+          communicationProtocol: CommunicationProtocolEnum.HTTP,
+          logger: {
+            level: LogLevel.Verbose,
           },
-          drainRebalancedActors: true,
-          actorIdleTimeout: '30s',
-          actorScanInterval: '30s',
+          isKeepAlive: true,
+          actor: {
+            reentrancy: {
+              enabled: true,
+              maxStackDepth: 32,
+            },
+            drainRebalancedActors: true,
+            actorIdleTimeout: '30s',
+            actorScanInterval: '30s',
+          },
         },
-      },
-      actorOptions: {
-        enabled: true,
-        allowInternalCalls: false,
-      },
-      workflowOptions: {
-        enabled: process.env.DAPR_WORKFLOW_ENABLED === 'true' || false,
-        daprPort: process.env.DAPR_GRPC_PORT ?? '3501', // This is the GRPC server
-      },
-      logging: {
-        enabled: true,
-      },
-      contextProvider: DaprContextProvider.NestCLS,
+        actorOptions: {
+          enabled: true,
+          allowInternalCalls: false,
+        },
+        workflowOptions: {
+          enabled: process.env.DAPR_WORKFLOW_ENABLED === 'true',
+          daprPort: process.env.DAPR_GRPC_PORT ?? '3501',
+        },
+        logging: {
+          enabled: true,
+        },
+        contextProvider: DaprContextProvider.NestCLS,
+      }),
     }),
   ],
   controllers: [CounterController],
@@ -79,7 +85,6 @@ import { GlobalCounterActor } from '../src/global-counter.actor';
     StatelessPubSubActor,
     HelloActivity,
     CreateEntityActivity,
-    GetEntityActivity,
     GetEntityActivity,
     HelloWorkflow,
   ],
