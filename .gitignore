@@ -13,6 +13,13 @@ npm-debug.log
 /test
 /coverage
 /.nyc_output
+coverage
+
+# temporary
+/temp
+temp
+/tmp
+tmp
 
 # dist
 dist
