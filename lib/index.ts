@@ -5,6 +5,13 @@ import { SerializableError } from './actors/serializable-error';
 import { StatefulActorOf } from './actors/stateful-actor-of';
 import { IState, StatefulActor } from './actors/stateful.actor';
 import {
+  CompressedEnvelope,
+  compressValue,
+  decompressValue,
+  isCompressedEnvelope,
+  maybeDecompressValue,
+} from './compression';
+import {
   DAPR_BINDING_METADATA,
   DAPR_PUBSUB_METADATA,
   DAPR_ACTOR_METADATA,
@@ -20,8 +27,8 @@ import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprPubSub, DaprPubSubMetadata } from './dapr-pubsub.decorator';
 import { DaprLoader } from './dapr.loader';
 import { DaprContextProvider, DaprModule } from './dapr.module';
-import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 import { getTraceId, withExtractedContext, withTracedContext } from './opentelemetry/trace';
+import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 
 export {
   DAPR_BINDING_METADATA,
@@ -53,4 +60,9 @@ export {
   getTraceId,
   withTracedContext,
   withExtractedContext,
+  CompressedEnvelope,
+  compressValue,
+  decompressValue,
+  isCompressedEnvelope,
+  maybeDecompressValue,
 };
