@@ -11,6 +11,6 @@ export function getDaprPort(communicationProtocol: CommunicationProtocolEnum): s
     case CommunicationProtocolEnum.GRPC:
       return process.env.DAPR_GRPC_PORT ?? '3501';
     default:
-      return '3500';
+      return process.env.DAPR_PORT ?? '3500';
   }
 }

@@ -34,7 +34,7 @@
     "rxjs": "^7.1.0 || ^8.0.0"
   },
   "dependencies": {
-    "@dapr/dapr": "^3.17.0",
+    "@dapr/dapr": "^3.18.0",
     "async-lock": "^1.4.1",
     "node-fetch": "^2.6.7",
     "whatwg-url": "^14.0.0"

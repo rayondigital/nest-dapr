@@ -616,6 +616,14 @@ Whilst testing you will need to run a Dapr sidecar:
 - gRPC Transport `dapr run --app-id nest-dapr --app-protocol grpc --dapr-grpc-port 3501 --app-port 3001 --log-level debug`
 - Dual Mode (HTTP and gRPC) `dapr run --app-id nest-dapr --dapr-http-port 3500 --dapr-grpc-port 3501 --app-port 3001 --app-protocol grpc --app-protocol http`
 
+For testing components are defined in tests/components:
+
+```shell
+dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components
+```
+
+Note: On Windows the dapr sidecar may need to be run in an administrator terminal.
+
 # Troubleshooting
 
 [Dapr](https://dapr.io/) is a complex set of tools and services and must be set-up and deployed carefully to ensure your system operates correctly. 
