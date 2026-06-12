@@ -1,0 +1,13 @@
+apiVersion: dapr.io/v1alpha1
+kind: Configuration
+metadata:
+  name: appconfig
+  namespace: default
+spec:
+  tracing:
+    samplingRate: '1'
+    # Points at the in-process ZipkinTraceCollector started by dapr-tracing.spec.ts.
+    # Zipkin v2 JSON needs no OTLP receiver, so the e2e is self-contained — it does
+    # not depend on an external backend (Zipkin/SigNoz) being up or queryable.
+    zipkin:
+      endpointAddress: http://localhost:9499/api/v2/spans

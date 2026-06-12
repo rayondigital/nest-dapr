@@ -1,4 +1,4 @@
-import { Attributes, context, propagation, SpanKind, trace } from '@opentelemetry/api';
+import { Attributes, context, isSpanContextValid, propagation, SpanKind, trace } from '@opentelemetry/api';
 import { ClsService, ClsServiceManager } from 'nestjs-cls';
 import { DAPR_TRACE_ID_KEY, DaprContextService } from '../dapr-context-service';
 
@@ -15,11 +15,14 @@ export function getTraceId(): string | undefined {
 
     const activeContext = context.active();
 
-    // First try to get span context from an active span
+    // First try to get span context from an active span.
+    // isSpanContextValid rejects the all-zero context that no-op/non-recording spans
+    // produce (e.g. a tracer with no SDK registered), so callers never get a bogus
+    // 00-000…-000…-00 traceparent.
     const activeSpan = trace.getSpan(activeContext);
     if (activeSpan) {
       const spanContext = activeSpan.spanContext();
-      if (spanContext && spanContext.traceId && spanContext.spanId) {
+      if (spanContext && isSpanContextValid(spanContext)) {
         const traceFlags = spanContext.traceFlags.toString(16).padStart(2, '0');
         return `00-${spanContext.traceId}-${spanContext.spanId}-${traceFlags}`;
       }
@@ -27,7 +30,7 @@ export function getTraceId(): string | undefined {
 
     // Fallback: try to get span context directly (works for extracted/remote contexts)
     const spanContext = trace.getSpanContext(activeContext);
-    if (spanContext && spanContext.traceId && spanContext.spanId) {
+    if (spanContext && isSpanContextValid(spanContext)) {
       const traceFlags = spanContext.traceFlags.toString(16).padStart(2, '0');
       return `00-${spanContext.traceId}-${spanContext.spanId}-${traceFlags}`;
     }
