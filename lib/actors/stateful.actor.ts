@@ -1,10 +1,11 @@
+import { ActorId, DaprClient } from '@dapr/dapr';
 import { Inject, Logger } from '@nestjs/common';
+import { compressValue, maybeDecompressValue } from '../compression';
 import { DAPR_ACTOR_STATE_METADATA } from '../constants';
 import { StateProperty } from '../dapr-actor-state.decorator';
 import { DaprContextService } from '../dapr-context-service';
 import { AbstractActor } from './abstract-actor';
 import { DaprActorClient } from './dapr-actor-client.service';
-import { ActorId, DaprClient } from '@dapr/dapr';
 
 export interface IState {
   fromJSON(json: any): this;
@@ -90,7 +91,9 @@ export class StatefulActor extends AbstractActor {
   }
 
   private async loadStatePropertyInternal(property: StateProperty) {
-    const rawValue = await this.getStateValue(property.name);
+    // getStateValue already transparently unwraps any compression envelope, so
+    // by this point `rawValue` is the plain (uncompressed) stored value.
+    let rawValue = await this.getStateValue(property.name);
     if (rawValue === undefined) {
       if (typeof property.defaultValue === 'function') {
         (this as any)[property.key] = property.defaultValue();
@@ -101,6 +104,10 @@ export class StatefulActor extends AbstractActor {
         (this as any)[property.key] = createInstanceOfType(property.type);
       }
     } else {
+      // Apply the user's deserialize transform (post-decompression, pre-fromJSON)
+      if (property.deserializeFn) {
+        rawValue = property.deserializeFn(rawValue);
+      }
       // We have obtained the raw value from the state store, but we need to convert it to the correct type
       // Lets see if the type has a `fromJSON` and a `toJSON` method
       const instance = createInstanceFromProperty(property, rawValue);
@@ -114,7 +121,9 @@ export class StatefulActor extends AbstractActor {
   }
 
   private async setAllStateFromPropertiesInternal() {
-    // Iterate over all @State properties and set their inner state manager values
+    // Iterate over all @State properties and set their inner state manager values.
+    // Transform order (innermost -> outermost): toJSON -> serializeFn -> compress.
+    // Compression is always the last step before the value hits the state store.
     for (const property of this.statePropertiesInternal) {
       let value = (this as any)[property.key];
       // If the property is serializable, then we need to call the `toJSON` method
@@ -126,6 +135,15 @@ export class StatefulActor extends AbstractActor {
           value = instance?.toJSON();
         }
       }
+      // Apply the user's serialize transform (post-toJSON, pre-compression)
+      if (value !== undefined && property.serializeFn) {
+        value = property.serializeFn(value);
+      }
+      // Compress last, so the envelope sits directly next to the state store wire call.
+      // Only an explicit `compressed: true` opts a value into being written compressed.
+      if (value !== undefined && property.compressed) {
+        value = await compressValue(value);
+      }
       await this.setStateValue(property.name, value);
     }
   }
@@ -136,7 +154,12 @@ export class StatefulActor extends AbstractActor {
       if (value === undefined) {
         return defaultValue;
       }
-      return value as T;
+      // Transparently unwrap a compression envelope if present. This is driven by
+      // the value's shape, not by the `compressed` flag, so values written while
+      // compression was enabled stay readable even after it is turned off again.
+      // Non-envelope values (and anything that only looks like one) pass through
+      // unchanged, so turning compression on/off carries no downside either way.
+      return (await maybeDecompressValue(value)) as T;
     } catch (e) {
       // Before we return the value, lets just check that there is no existing entry
       const exists = await this.getStateManager().containsState(stateName);

@@ -17,6 +17,18 @@ export interface DaprActorMetadata {
    * Name of actor used by State Manager.
    */
   stateName?: string;
+  /**
+   * How long to wait before deactivating an idle actor instance.
+   * Uses Go duration format, e.g. "1h", "30m", "10s".
+   * Overrides the global actorIdleTimeout for this actor type.
+   */
+  idleTimeout?: string;
+  /**
+   * How long to wait for an in-flight actor method to complete during draining.
+   * Uses Go duration format, e.g. "30s", "1m".
+   * Overrides the global drainOngoingCallTimeout for this actor type.
+   */
+  drainOngoingCallTimeout?: string;
 }
 
 /**
@@ -31,6 +43,8 @@ export function DaprActor(options: DaprActorMetadata): ClassDecorator {
       name: options.name ?? target.constructor.name,
       stateName: options.stateName,
       interfaceType: options.interfaceType,
+      idleTimeout: options.idleTimeout,
+      drainOngoingCallTimeout: options.drainOngoingCallTimeout,
     })(target);
     Injectable({ scope: Scope.TRANSIENT })(target); // All actors are transient
   };

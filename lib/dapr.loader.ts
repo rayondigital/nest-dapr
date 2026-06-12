@@ -11,6 +11,7 @@ import {
 } from '@nestjs/common';
 import { DiscoveryService, MetadataScanner, ModuleRef } from '@nestjs/core';
 import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
+import { ActorEntityConfig, entityConfigCache } from './actors/actor-entity-config';
 import { DaprActorClient } from './actors/dapr-actor-client.service';
 import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
@@ -324,6 +325,15 @@ export class DaprLoader implements OnModuleInit, OnApplicationBootstrap, OnAppli
       daprActorMetadata?.interfaceType?.name ?? daprActorMetadata?.interfaceType?.constructor.name;
 
     await this.daprServer.actor.registerActor(actorType as Class<AbstractActor>);
+
+    // If the metadata overrides a default we need to patch the entityConfigCache which maps back to getRegisteredActorResponse
+    if (daprActorMetadata?.idleTimeout || daprActorMetadata?.drainOngoingCallTimeout) {
+      const config: ActorEntityConfig = { entities: [actorTypeName] };
+      if (daprActorMetadata.idleTimeout) config.actorIdleTimeout = daprActorMetadata.idleTimeout;
+      if (daprActorMetadata.drainOngoingCallTimeout)
+        config.drainOngoingCallTimeout = daprActorMetadata.drainOngoingCallTimeout;
+      entityConfigCache.push(config);
+    }
 
     this.logger.log(`Registering Dapr Actor: ${actorTypeName} of type ${interfaceTypeName ?? 'unknown'}`);
 

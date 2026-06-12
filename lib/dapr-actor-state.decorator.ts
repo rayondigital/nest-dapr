@@ -7,6 +7,7 @@ export interface StateProperty {
   type: Function | Type<any>;
   defaultValue?: any;
   serializable?: boolean;
+  compressed?: boolean;
   serializeFn?: (value: any) => object | string | number | boolean | null | undefined;
   deserializeFn?: (value: any) => any;
 }
@@ -14,6 +15,7 @@ export interface StateProperty {
 export function State(options?: {
   defaultValue?: any;
   name?: string;
+  compressed?: boolean;
   serialize?: (value: any) => any;
   deserialize?: (value: any) => any;
 }): PropertyDecorator {
@@ -31,6 +33,7 @@ export function State(options?: {
       type,
       defaultValue: options?.defaultValue,
       serializable,
+      compressed: options?.compressed ?? false,
       deserializeFn: options?.deserialize,
       serializeFn: options?.serialize,
     });

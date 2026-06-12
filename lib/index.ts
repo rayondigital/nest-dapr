@@ -5,6 +5,13 @@ import { SerializableError } from './actors/serializable-error';
 import { StatefulActorOf } from './actors/stateful-actor-of';
 import { IState, StatefulActor } from './actors/stateful.actor';
 import {
+  CompressedEnvelope,
+  compressValue,
+  decompressValue,
+  isCompressedEnvelope,
+  maybeDecompressValue,
+} from './compression';
+import {
   DAPR_BINDING_METADATA,
   DAPR_PUBSUB_METADATA,
   DAPR_ACTOR_METADATA,
@@ -53,4 +60,9 @@ export {
   getTraceId,
   withTracedContext,
   withExtractedContext,
+  CompressedEnvelope,
+  compressValue,
+  decompressValue,
+  isCompressedEnvelope,
+  maybeDecompressValue,
 };
