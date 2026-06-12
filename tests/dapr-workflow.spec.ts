@@ -8,11 +8,15 @@ import { randomUUID } from 'crypto';
 import { DaprWorkflowClient } from '../lib/workflow/dapr-workflow-client.service';
 import { HelloWorkflow } from './src/hello-workflow';
 import { workflowOutput } from '../lib/workflow/workflow';
+import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// To run inside Dapr use:
-// dapr run --app-id nest-dapr --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --log-level debug --resources-path ./tests/components
-// npm run test -- workflow
+// Requires a real Dapr sidecar (gRPC workflows are not emulated):
+//   dapr run --app-id nest-dapr --app-protocol http --app-port 3001 \
+//     --dapr-http-port 3500 --dapr-grpc-port 3501 \
+//     --resources-path ./tests/components
+//   DAPR_TEST_MODE=real npm run test -- workflow
 describe('DaprWorkflow', () => {
+  let sidecar: SidecarContext;
   let testingModule: TestingModule;
   let app: INestApplication;
   let daprServer: DaprServer;
@@ -20,12 +24,14 @@ describe('DaprWorkflow', () => {
   let workflowClient: DaprWorkflowClient;
 
   beforeAll(async () => {
+    sidecar = await SidecarContext.start();
+
     testingModule = await Test.createTestingModule({
       imports: [TestModule],
     }).compile();
     app = testingModule.createNestApplication();
     await app.init();
-    await app.listen(3000);
+    await app.listen(0);
     daprServer = app.get<DaprServer>(DaprServer);
     daprClient = testingModule.get(DaprClient);
     workflowClient = testingModule.get(DaprWorkflowClient);
@@ -62,5 +68,6 @@ describe('DaprWorkflow', () => {
     await app.close();
     await app.getHttpServer().close();
     await daprServer.stop();
+    await sidecar?.stop();
   });
 });

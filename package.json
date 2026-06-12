@@ -1,6 +1,6 @@
 {
   "name": "@rayondigital/nest-dapr",
-  "version": "0.10.11",
+  "version": "0.11.0",
   "description": "Develop NestJs microservices using Dapr pubsub, actors, workflows and other bindings",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -30,13 +30,13 @@
     "@opentelemetry/api": "^1.0.0 || ^2.0.0",
     "eventemitter2": "^6.0.0",
     "nestjs-cls": "^5.0.0 || ^6.0.0 || ^7.0.0",
-    "node-fetch": "^3.0.0",
+    "node-fetch": "^2.6.7 || ^3.0.0",
     "rxjs": "^7.1.0 || ^8.0.0"
   },
   "dependencies": {
-    "@dapr/dapr": "^3.6.1",
+    "@dapr/dapr": "^3.18.0",
     "async-lock": "^1.4.1",
-    "node-fetch": "^3.0.0",
+    "node-fetch": "^2.6.7",
     "whatwg-url": "^14.0.0"
   },
   "devDependencies": {
@@ -51,11 +51,14 @@
     "@opentelemetry/sdk-metrics": "^2.2.0",
     "@opentelemetry/sdk-node": "^0.208.0",
     "@opentelemetry/sdk-trace-node": "^2.2.0",
+    "@types/async-lock": "^1.4.2",
     "@types/axios": "^0.14.4",
+    "@types/body-parser": "^1.19.6",
+    "@types/express": "^5.0.6",
     "@types/jest": "^29.5.13",
     "@types/supertest": "^2.0.11",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
-    "axios": "^1.13.2",
+    "axios": "^1.16.1",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^8.10.0",
     "eslint-plugin-import": "^2.30.0",

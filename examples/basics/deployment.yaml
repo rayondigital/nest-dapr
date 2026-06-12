@@ -33,7 +33,9 @@ spec:
               value: "0.0.0.0"
             - name: DAPR_SERVER_PORT
               value: "3001"
-            - name: DAPR_COMMUNICATION_PROTOCOL
+            - name: DAPR_SERVER_COMMUNICATION_PROTOCOL
+              value: "HTTP"
+            - name: DAPR_CLIENT_COMMUNICATION_PROTOCOL
               value: "HTTP"
             - name: NAMESPACE
               valueFrom:

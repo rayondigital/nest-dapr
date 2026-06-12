@@ -1,3 +1,4 @@
+// eslint-disable-next-line @typescript-eslint/ban-ts-comment
 // @ts-nocheck
 import { ActorId, CommunicationProtocolEnum, DaprClient } from '@dapr/dapr';
 import ActorClient from '@dapr/dapr/actors/client/ActorClient/ActorClient';

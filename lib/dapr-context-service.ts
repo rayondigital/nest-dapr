@@ -62,6 +62,12 @@ export class DaprContextService {
     return undefined;
   }
 
+  hasTraceId(): boolean {
+    if (this.getByKey<string>(DAPR_TRACE_ID_KEY)) return true;
+    const context = this.getByKey<any>(DAPR_CONTEXT_KEY);
+    return !!(context && context[DAPR_TRACE_ID_KEY]);
+  }
+
   setCorrelationId(value?: string) {
     this.setByKey(DAPR_CORRELATION_ID_KEY, value ?? randomUUID().toString());
   }

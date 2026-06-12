@@ -9,6 +9,7 @@ export abstract class StatelessCounterActorInterface {
   abstract throwSerializableError(): Promise<void>;
   abstract throwError(): Promise<void>;
   abstract reset(): Promise<void>;
+  abstract getObservedTraceId(): Promise<string>;
 }
 
 @DaprActor({
@@ -39,6 +40,10 @@ export class StatelessCounterActor extends AbstractActor implements StatelessCou
 
   async reset(): Promise<void> {
     this.counter = 0;
+  }
+
+  async getObservedTraceId(): Promise<string> {
+    return this.contextService.getTraceId();
   }
 
   async throwSerializableError(): Promise<void> {
