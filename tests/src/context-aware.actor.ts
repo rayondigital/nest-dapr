@@ -3,9 +3,20 @@ import { DaprActor, DaprActorClient, DaprContextService } from '../../lib';
 import { Inject } from '@nestjs/common';
 import { StatelessCounterActorInterface } from './stateless-counter.actor';
 
+export interface TraceReport {
+  self: string;
+  nested: string;
+  counter: string;
+}
+
 export abstract class ContextAwareActorInterface {
   abstract run(): Promise<string>;
   abstract ping(): Promise<string>;
+  // Returns the trace ID observed in this actor's propagated context.
+  abstract getObservedTraceId(): Promise<string>;
+  // Fans out to a nested actor and a stateless counter actor, returning the
+  // trace ID each hop observed so a test can assert they all share one trace.
+  abstract runTraced(): Promise<TraceReport>;
 }
 
 @DaprActor({
@@ -51,5 +62,23 @@ export class ContextAwareActor extends AbstractActor implements ContextAwareActo
     console.log('correlationID', existingContext?.correlationID);
 
     return existingContext?.correlationID;
+  }
+
+  async getObservedTraceId(): Promise<string> {
+    return this.contextService.getTraceId();
+  }
+
+  async runTraced(): Promise<TraceReport> {
+    const self = this.contextService.getTraceId();
+
+    // actor -> actor hop
+    const nested = this.client.getActor(ContextAwareActorInterface, 'nested-trace-2');
+    const nestedTraceId = await nested.getObservedTraceId();
+
+    // actor -> actor (different type) hop
+    const counter = this.client.getActor(StatelessCounterActorInterface, 'counter-trace-1');
+    const counterTraceId = await counter.getObservedTraceId();
+
+    return { self, nested: nestedTraceId, counter: counterTraceId };
   }
 }

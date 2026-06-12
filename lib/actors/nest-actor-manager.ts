@@ -11,7 +11,7 @@ import { InstanceWrapper } from '@nestjs/core/injector/instance-wrapper';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY, DaprContextService } from '../dapr-context-service';
 import { DaprModuleOptions } from '../dapr.module';
 import { SerializableError } from './serializable-error';
-import { withExtractedContext } from '../opentelemetry/trace';
+import { getTraceId, withExtractedContext } from '../opentelemetry/trace';
 
 @Injectable()
 export class NestActorManager {
@@ -150,6 +150,12 @@ export class NestActorManager {
               if (traceId) {
                 contextService.setTraceId(traceId);
               }
+            }
+
+            // Prefer this hop's own span as the trace parent for any outgoing calls.
+            const currentHopTraceId = getTraceId();
+            if (currentHopTraceId) {
+              contextService.setTraceId(currentHopTraceId);
             }
 
             if (invokeWrapperFn) {
