@@ -5,10 +5,12 @@ import { INestApplication } from '@nestjs/common';
 import { StatelessCounterActorInterface } from './src/stateless-counter.actor';
 import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
 import { SerializableError } from '../lib';
+import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// To run inside Dapr use:
-// dapr run --app-id nest-dapr --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test
+// Emulator mode: DAPR_TEST_MODE=emulator npm run test
+// Real sidecar: DAPR_TEST_MODE=real npm run test
 describe('DaprActor', () => {
+  let sidecar: SidecarContext;
   let testingModule: TestingModule;
   let app: INestApplication;
   let daprServer: DaprServer;
@@ -16,12 +18,14 @@ describe('DaprActor', () => {
   let daprActorClient: DaprActorClient;
 
   beforeAll(async () => {
+    sidecar = await SidecarContext.start();
+
     testingModule = await Test.createTestingModule({
       imports: [TestModule],
     }).compile();
     app = testingModule.createNestApplication();
     await app.init();
-    await app.listen(3000);
+    await app.listen(0);
     daprServer = app.get<DaprServer>(DaprServer);
     daprClient = testingModule.get(DaprClient);
     daprActorClient = testingModule.get(DaprActorClient);
@@ -62,5 +66,6 @@ describe('DaprActor', () => {
     await app.close();
     await app.getHttpServer().close();
     await daprServer.stop();
+    await sidecar?.stop();
   });
 });

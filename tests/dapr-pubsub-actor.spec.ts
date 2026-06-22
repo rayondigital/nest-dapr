@@ -7,10 +7,12 @@ import { sleep, waitForArrayLengthToBe } from './test.utils';
 import { DaprActorClient, DaprPubSubClient } from '../lib';
 import { StatelessPubSubActorInterface } from './src/stateless-pubsub.actor';
 import { DaprEventEmitter } from '../lib/dapr-event-emitter.service';
+import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// To run inside Dapr use:
-// dapr run --app-id nest-dapr --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test -- pubsub
+// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- pubsub
+// Real sidecar: DAPR_TEST_MODE=real npm run test -- pubsub
 describe('DaprPubSubActor', () => {
+  let sidecar: SidecarContext;
   let testingModule: TestingModule;
   let app: INestApplication;
   let daprServer: DaprServer;
@@ -23,12 +25,14 @@ describe('DaprPubSubActor', () => {
   let messages = [];
 
   beforeAll(async () => {
+    sidecar = await SidecarContext.start();
+
     testingModule = await Test.createTestingModule({
       imports: [TestModule],
     }).compile();
     app = testingModule.createNestApplication();
     await app.init();
-    await app.listen(3000);
+    await app.listen(0);
     daprServer = app.get<DaprServer>(DaprServer);
     daprClient = testingModule.get(DaprClient);
     pubsubClient = testingModule.get(DaprPubSubClient);
@@ -95,5 +99,6 @@ describe('DaprPubSubActor', () => {
     await app.close();
     await app.getHttpServer().close();
     await daprServer.stop();
+    await sidecar?.stop();
   });
 });

@@ -7,8 +7,7 @@ import { INestApplication } from '@nestjs/common';
 import { DaprClient, DaprServer } from '@dapr/dapr';
 import { ClsService } from 'nestjs-cls';
 import { TestModule } from './e2e/test.module';
-import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
-import { DaprContextService } from '../lib';
+import { DaprActorClient, DaprContextService } from '../lib';
 import { ContextAwareActorInterface } from './src/context-aware.actor';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 import { ZipkinTraceCollector } from './zipkin-trace-collector';
@@ -22,12 +21,16 @@ import { ZipkinTraceCollector } from './zipkin-trace-collector';
 // tree is printed to the test output AND asserted. Run under a real sidecar pointed
 // at the collector via tests/components/tracing.config.yaml:
 //
-//   $env:DAPR_TEST_MODE='real'
+//   $env:DAPR_TRACING_E2E='true'; $env:DAPR_TEST_MODE='real'
 //   dapr run --app-id testing --app-protocol http --app-port 3001 `
 //     --dapr-http-port 3500 --dapr-grpc-port 3501 `
 //     --resources-path ./tests/components --config ./tests/components/tracing.config.yaml `
 //     -- npx jest --runInBand tracing
-describe('DaprTracing', () => {
+//
+// Opt-in: gated behind DAPR_TRACING_E2E so a default `npm test` (emulator mode) neither
+// hangs in beforeAll nor fails for 0 spans when the sidecar isn't pointed at the collector.
+const describeTracing = process.env.DAPR_TRACING_E2E === 'true' ? describe : describe.skip;
+describeTracing('DaprTracing', () => {
   const COLLECTOR_PORT = 9499;
 
   let collector: ZipkinTraceCollector;

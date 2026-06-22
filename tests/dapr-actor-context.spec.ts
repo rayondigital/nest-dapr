@@ -7,10 +7,12 @@ import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
 import { ContextAwareActorInterface } from './src/context-aware.actor';
 import { DaprContextService } from '../lib';
 import { itWithContext, sleep } from './test.utils';
+import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// To run inside Dapr use:
-// dapr run --app-id nest-dapr-test --dapr-http-port 3500 --app-port 3001 --log-level debug -- npm run test -- context
+// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- context
+// Real sidecar: DAPR_TEST_MODE=real npm run test -- context
 describe('DaprActorContext', () => {
+  let sidecar: SidecarContext;
   let testingModule: TestingModule;
   let app: INestApplication;
   let contextService: ClsService;
@@ -20,12 +22,14 @@ describe('DaprActorContext', () => {
   let daprContextService: DaprContextService;
 
   beforeAll(async () => {
+    sidecar = await SidecarContext.start();
+
     testingModule = await Test.createTestingModule({
       imports: [TestModule],
     }).compile();
     app = testingModule.createNestApplication();
     await app.init();
-    await app.listen(3000);
+    await app.listen(0);
     daprServer = app.get<DaprServer>(DaprServer);
     contextService = app.get<ClsService>(ClsService);
     daprClient = testingModule.get(DaprClient);
@@ -67,5 +71,6 @@ describe('DaprActorContext', () => {
     await app.close();
     await app.getHttpServer().close();
     await daprServer.stop();
+    await sidecar?.stop();
   });
 });
