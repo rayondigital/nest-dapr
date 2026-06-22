@@ -1,6 +1,6 @@
 {
   "name": "@rayondigital/nest-dapr",
-  "version": "0.10.11",
+  "version": "0.10.12",
   "description": "Develop NestJs microservices using Dapr pubsub, actors, workflows and other bindings",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
@@ -9,6 +9,7 @@
     "lint": "eslint \"{lib,tests}/**/*.ts\" --fix",
     "test": "jest --runInBand",
     "test:in-memory": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components npm run test",
+    "test:tracing": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components --config ./tests/components/tracing.config.yaml -- npx jest --runInBand tracing",
     "start:test": "nodemon tests/e2e/main.ts",
     "push:version": "git push --follow-tags"
   },
@@ -30,13 +31,13 @@
     "@opentelemetry/api": "^1.0.0 || ^2.0.0",
     "eventemitter2": "^6.0.0",
     "nestjs-cls": "^5.0.0 || ^6.0.0 || ^7.0.0",
-    "node-fetch": "^3.0.0",
+    "node-fetch": "^2.6.7 || ^3.0.0",
     "rxjs": "^7.1.0 || ^8.0.0"
   },
   "dependencies": {
     "@dapr/dapr": "^3.6.1",
     "async-lock": "^1.4.1",
-    "node-fetch": "^3.0.0",
+    "node-fetch": "^2.6.7",
     "whatwg-url": "^14.0.0"
   },
   "devDependencies": {
