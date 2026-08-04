@@ -48,6 +48,7 @@ export class DaprSidecarEmulator {
   private readonly stateStore = new Map<string, Map<string, any>>();
   private readonly reminders = new Map<string, ScheduledInvocation>();
   private readonly timers = new Map<string, ScheduledInvocation>();
+  private readonly locks = new Map<string, { owner: string; expiresAt: number }>();
 
   constructor(private readonly options: SidecarOptions) {
     this.http = axios.create({ timeout: 30_000, validateStatus: () => true });
@@ -151,6 +152,19 @@ export class DaprSidecarEmulator {
       res.json(keys.map((key) => ({ key, data: store.get(key) ?? null })));
     });
 
+    // State store — transaction (upsert/delete applied atomically to the in-memory map)
+    this.app.post('/v1.0/state/:storeName/transaction', (req, res) => {
+      const store = this.storeFor(req.params.storeName);
+      const operations = Array.isArray(req.body?.operations) ? req.body.operations : [];
+      for (const op of operations) {
+        const key = op?.request?.key;
+        if (typeof key !== 'string') continue;
+        if (op.operation === 'delete') store.delete(key);
+        else store.set(key, op.request.value);
+      }
+      res.status(204).send();
+    });
+
     // Actor method invocation — proxy to app
     this.app.post('/v1.0/actors/:actorType/:actorId/method/:methodName', async (req, res) => {
       const { actorType, actorId, methodName } = req.params;
@@ -234,6 +248,43 @@ export class DaprSidecarEmulator {
       }
     });
 
+    // Distributed lock — acquire
+    this.app.post('/v1.0-alpha1/lock/:storeName', (req, res) => {
+      const { storeName } = req.params;
+      const { resourceId, lockOwner, expiryInSeconds } = req.body ?? {};
+      const key = this.lockKey(storeName, resourceId);
+      const existing = this.locks.get(key);
+      const now = Date.now();
+
+      if (existing && existing.expiresAt > now) {
+        res.json({ success: false });
+        return;
+      }
+
+      this.locks.set(key, { owner: lockOwner, expiresAt: now + (Number(expiryInSeconds) || 0) * 1000 });
+      res.json({ success: true });
+    });
+
+    // Distributed lock — release
+    this.app.post('/v1.0-alpha1/unlock/:storeName', (req, res) => {
+      const { storeName } = req.params;
+      const { resourceId, lockOwner } = req.body ?? {};
+      const key = this.lockKey(storeName, resourceId);
+      const existing = this.locks.get(key);
+
+      if (!existing || existing.expiresAt <= Date.now()) {
+        this.locks.delete(key);
+        res.json({ status: 1 }); // LockDoesNotExist
+        return;
+      }
+      if (existing.owner !== lockOwner) {
+        res.json({ status: 2 }); // LockBelongsToOthers
+        return;
+      }
+      this.locks.delete(key);
+      res.json({ status: 0 }); // Success
+    });
+
     // PubSub — bulk
     this.app.post('/v1.0-alpha1/publish/bulk/:pubsubName/:topic', async (req, res) => {
       const { pubsubName, topic } = req.params;
@@ -266,6 +317,10 @@ export class DaprSidecarEmulator {
   private storeFor(storeName: string): Map<string, any> {
     if (!this.stateStore.has(storeName)) this.stateStore.set(storeName, new Map());
     return this.stateStore.get(storeName)!;
+  }
+
+  private lockKey(storeName: string, resourceId: string): string {
+    return `${storeName}::${resourceId}`;
   }
 
   // ---------------------------------------------------------------------------

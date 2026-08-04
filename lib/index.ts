@@ -1,3 +1,14 @@
+import { KeyValueType } from '@dapr/dapr/types/KeyValue.type';
+import { KeyValuePairType } from '@dapr/dapr/types/KeyValuePair.type';
+import { OperationType } from '@dapr/dapr/types/Operation.type';
+import { IRequestMetadata } from '@dapr/dapr/types/RequestMetadata.type';
+import { LockResponse } from '@dapr/dapr/types/lock/LockResponse';
+import { LockStatus, UnlockResponse } from '@dapr/dapr/types/lock/UnlockResponse';
+import { StateDeleteOptions } from '@dapr/dapr/types/state/StateDeleteOptions.type';
+import { StateGetBulkOptions } from '@dapr/dapr/types/state/StateGetBulkOptions.type';
+import { StateGetOptions } from '@dapr/dapr/types/state/StateGetOptions.type';
+import { StateSaveOptions } from '@dapr/dapr/types/state/StateSaveOptions.type';
+import { StateSaveResponseType } from '@dapr/dapr/types/state/StateSaveResponseType';
 import { ActorRuntimeService } from './actors/actor-runtime.service';
 import { DaprClientCache } from './actors/client-cache';
 import { DaprActorClient } from './actors/dapr-actor-client.service';
@@ -31,8 +42,11 @@ import { DaprPubSub, DaprPubSubMetadata } from './dapr-pubsub.decorator';
 import { DaprWorkflow, DaprWorkflowMetadata } from './dapr-workflow.decorator';
 import { DaprLoader } from './dapr.loader';
 import { DaprContextProvider, DaprModule, DaprModuleWorkflowOptions } from './dapr.module';
+import { DaprLockAcquisitionError, DaprLockClient, WithLockOptions } from './lock/dapr-lock-client.service';
 import { getTraceId, withExtractedContext, withTracedContext } from './opentelemetry/trace';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
+import { DaprStateClient } from './state/dapr-state-client.service';
+import { dehydrateStateValue, hydrateStateValue, isSerializableType, StateCodecOptions } from './state/state-codec';
 import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
 import {
   ActivityInput,
@@ -69,6 +83,26 @@ export {
   DaprContextProvider,
   ActorRuntimeService,
   DaprPubSubClient,
+  DaprLockClient,
+  DaprLockAcquisitionError,
+  WithLockOptions,
+  LockResponse,
+  LockStatus,
+  UnlockResponse,
+  DaprStateClient,
+  StateCodecOptions,
+  hydrateStateValue,
+  dehydrateStateValue,
+  isSerializableType,
+  KeyValueType,
+  KeyValuePairType,
+  OperationType,
+  IRequestMetadata,
+  StateGetOptions,
+  StateGetBulkOptions,
+  StateSaveOptions,
+  StateDeleteOptions,
+  StateSaveResponseType,
   DaprClientCache,
   DaprEventEmitter,
   StatefulActor,

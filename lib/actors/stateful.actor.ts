@@ -1,9 +1,10 @@
 import { ActorId, DaprClient } from '@dapr/dapr';
 import { Inject, Logger } from '@nestjs/common';
-import { compressValue, maybeDecompressValue } from '../compression';
+import { maybeDecompressValue } from '../compression';
 import { DAPR_ACTOR_STATE_METADATA } from '../constants';
 import { StateProperty } from '../dapr-actor-state.decorator';
 import { DaprContextService } from '../dapr-context-service';
+import { dehydrateStateValue, hydrateStateValue } from '../state/state-codec';
 import { AbstractActor } from './abstract-actor';
 import { DaprActorClient } from './dapr-actor-client.service';
 
@@ -91,59 +92,16 @@ export class StatefulActor extends AbstractActor {
   }
 
   private async loadStatePropertyInternal(property: StateProperty) {
-    // getStateValue already transparently unwraps any compression envelope, so
-    // by this point `rawValue` is the plain (uncompressed) stored value.
-    let rawValue = await this.getStateValue(property.name);
-    if (rawValue === undefined) {
-      if (typeof property.defaultValue === 'function') {
-        (this as any)[property.key] = property.defaultValue();
-      } else if (property.defaultValue !== undefined) {
-        (this as any)[property.key] = property.defaultValue;
-      } else {
-        // Attempt to new up a new instance of the type (call the constructor)
-        (this as any)[property.key] = createInstanceOfType(property.type);
-      }
-    } else {
-      // Apply the user's deserialize transform (post-decompression, pre-fromJSON)
-      if (property.deserializeFn) {
-        rawValue = property.deserializeFn(rawValue);
-      }
-      // We have obtained the raw value from the state store, but we need to convert it to the correct type
-      // Lets see if the type has a `fromJSON` and a `toJSON` method
-      const instance = createInstanceFromProperty(property, rawValue);
-      if (instance !== undefined) {
-        (this as any)[property.key] = instance;
-      } else {
-        // The user may think this is typed, but its just the raw value
-        (this as any)[property.key] = rawValue;
-      }
-    }
+    // getStateValue already transparently unwraps any compression envelope, and
+    // hydrateStateValue attempts it again defensively — a harmless no-op here.
+    const rawValue = await this.getStateValue(property.name);
+    (this as any)[property.key] = await hydrateStateValue(rawValue, property);
   }
 
   private async setAllStateFromPropertiesInternal() {
     // Iterate over all @State properties and set their inner state manager values.
-    // Transform order (innermost -> outermost): toJSON -> serializeFn -> compress.
-    // Compression is always the last step before the value hits the state store.
     for (const property of this.statePropertiesInternal) {
-      let value = (this as any)[property.key];
-      // If the property is serializable, then we need to call the `toJSON` method
-      // If the toJSON method fails, then an error will be thrown and the state will not be set
-      if (value !== undefined && property.serializable) {
-        const instance = value as IState;
-        // Only convert to JSON if the instance has a `toJSON` method
-        if (typeof instance.toJSON === 'function') {
-          value = instance?.toJSON();
-        }
-      }
-      // Apply the user's serialize transform (post-toJSON, pre-compression)
-      if (value !== undefined && property.serializeFn) {
-        value = property.serializeFn(value);
-      }
-      // Compress last, so the envelope sits directly next to the state store wire call.
-      // Only an explicit `compressed: true` opts a value into being written compressed.
-      if (value !== undefined && property.compressed) {
-        value = await compressValue(value);
-      }
+      const value = await dehydrateStateValue((this as any)[property.key], property);
       await this.setStateValue(property.name, value);
     }
   }
@@ -171,60 +129,3 @@ export class StatefulActor extends AbstractActor {
     }
   }
 }
-
-function createInstanceFromProperty(property: StateProperty, rawValue?: any) {
-  // This method is a little complex, but we're trying to be a nice to the end user as possible
-  try {
-    if (property.serializable) {
-      let instance: IState;
-      if (typeof property.defaultValue === 'function') {
-        instance = property.defaultValue();
-      } else {
-        // New up a new instance of the type (call the constructor)
-        // Assuming that the type has a default constructor
-        instance = createInstanceOfType(property.type);
-      }
-      if (instance.fromJSON) {
-        return instance.fromJSON(rawValue) ?? instance;
-      } else {
-        // For each of the raw values properties, set the instance property of the same name
-        for (const key of Object.keys(rawValue)) {
-          (instance as any)[key] = rawValue[key];
-        }
-        return instance;
-      }
-    } else {
-      // We don't know if the type is serializable, so lets just try to new up an instance
-      // This is the safest default the user is likely to want.
-      let instance: any;
-      if (typeof property.defaultValue === 'function') {
-        instance = property.defaultValue();
-      } else if (property.type) {
-        // New up a new instance of the type (call the constructor)
-        // Assuming that the type has a default constructor
-        instance = createInstanceOfType(property.type);
-      }
-      if (instance !== undefined) {
-        // For each of the raw values properties, set the instance property of the same name
-        for (const key of Object.keys(rawValue)) {
-          instance[key] = rawValue[key];
-        }
-        return instance;
-      }
-    }
-  } catch (e) {
-    return undefined;
-  }
-}
-
-function createInstanceOfType<T>(type: Constructor<T> | { new (): T } | any): T {
-  try {
-    return new type();
-  } catch (e) {
-    // If we get an error, then it is likely that the type does not have a default constructor
-    // Or cannot be instantiated up using the `new` keyword, so lets just return undefined
-    return undefined as T;
-  }
-}
-
-type Constructor<T = any> = new (...args: any[]) => T;
