@@ -9,7 +9,7 @@ import { CounterModule } from './counter/counter.module';
 import { ActorModule } from './actors/actor.module';
 import { MediatorModule } from './mediator/mediator.module';
 import { ClsModule } from 'nestjs-cls';
-import { PubSubReceiverService } from './pubsub.service';
+import { GreetingWorkflowModule } from './workflow/workflow.module';
 
 @Module({
   imports: [
@@ -28,12 +28,22 @@ import { PubSubReceiverService } from './pubsub.service';
     DaprModule.registerAsync({
       useFactory: (configService: ConfigService) => {
         return {
-          onError: () => DaprPubSubStatusEnum.RETRY,
           serverHost: configService.get('DAPR_SERVER_HOST') ?? 'localhost',
           serverPort: configService.get('DAPR_SERVER_PORT') ?? '3001',
           communicationProtocol:
             configService.get('DAPR_SERVER_COMMUNICATION_PROTOCOL') ??
             CommunicationProtocolEnum.HTTP,
+          contextProvider: DaprContextProvider.NestCLS,
+          catchErrors: true,
+          pubsubOptions: {
+            onError: () => DaprPubSubStatusEnum.RETRY,
+          },
+          workflowOptions: {
+            enabled: true,
+            // Workflows talk to the sidecar over gRPC, not HTTP - must match the sidecar's
+            // --dapr-grpc-port (see start:dapr in package.json and DAPR_GRPC_PORT in .env).
+            daprPort: configService.get('DAPR_GRPC_PORT') ?? '3501',
+          },
           clientOptions: {
             daprHost: configService.get('DAPR_HOST'),
             daprPort: configService.get('DAPR_PORT'),
@@ -48,8 +58,6 @@ import { PubSubReceiverService } from './pubsub.service';
               actorIdleTimeout: '1m',
               actorScanInterval: '30s',
             },
-            contextProvider: DaprContextProvider.NestCLS,
-            catchErrors: true,
           },
         };
       },
@@ -59,8 +67,8 @@ import { PubSubReceiverService } from './pubsub.service';
     MediatorModule,
     ActorModule,
     CounterModule,
+    GreetingWorkflowModule,
   ],
-  providers: [PubSubReceiverService],
   controllers: [PubsubController, CounterController],
 })
 export class AppModule {}

@@ -4,6 +4,9 @@
   "description": "Develop NestJs microservices using Dapr pubsub, actors, workflows and other bindings",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
+  "workspaces": [
+    "examples/basics"
+  ],
   "scripts": {
     "build": "rimraf -rf dist && tsc -p tsconfig.json",
     "lint": "eslint \"{lib,tests}/**/*.ts\" --fix",

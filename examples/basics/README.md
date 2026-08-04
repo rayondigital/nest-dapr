@@ -4,11 +4,20 @@ Demonstrates Dapr integration with NestJS
 
 ## Getting Started
 
-Install packages
+This example is an npm workspace member of the root `nest-dapr` repo, and depends on `@rayondigital/nest-dapr`
+via a `file:../..` link — so it always runs against the local library source, not the published npm package.
+This makes it the easiest way to reproduce and fix library issues live:
 
 ```bash
-npm i
+# From the repo root
+npm run build       # builds ../../dist
+npm install          # installs & links workspace members (only needed once, or after adding deps)
+cd examples/basics
+npm run start:dapr:memory
 ```
+
+After changing anything under `../../lib`, just re-run `npm run build` at the repo root and restart the app —
+no republish or reinstall needed.
 
 ## Dapr Setup
 
@@ -39,11 +48,20 @@ The ports are:
 | NestJS               | 3000 |
 | Dapr (NodeJS) | 3001 |
 | Dapr Sidecar         | 3500 |
+| Dapr Sidecar (gRPC, workflows) | 3501 |
+
+The quickest way to run locally, with no external dependencies (in-memory pubsub/state store):
 
 ```bash
-npm run start:dapr  
-# OR
-dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 npm run start
+npm run start:dapr:memory
+```
+
+Or against Redis pubsub/state via `./components` (see `docker-compose.yml` for Redis/Azurite):
+
+```bash
+npm run start:dapr
+# equivalent to:
+dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 npm run start
 ```
 
 ## PubSub test
@@ -81,4 +99,37 @@ Observer the global counter value
 
 ```bash
 curl localhost:3000/counter/global
+```
+
+## Workflow test
+
+`GreetingWorkflow` (see `src/workflow`) demonstrates a simple workflow with a human-in-the-loop step: it calls
+an activity to build a greeting, then pauses and waits for an `approve` event before calling a second activity
+to shout it back, then completes.
+
+Start the workflow:
+
+```bash
+curl -X POST localhost:3000/workflow/greeting -H "Content-Type: application/json" -d '{"name":"World"}'
+# {"instanceId":"<id>"}
+```
+
+Check its status — it should be parked waiting for approval:
+
+```bash
+curl localhost:3000/workflow/<id>
+# {"runtimeStatus":0,"customStatus":"waiting-for-approval",...}
+```
+
+Approve it to let it continue:
+
+```bash
+curl -X POST localhost:3000/workflow/<id>/events/approve
+```
+
+Check its status again — it should now be completed:
+
+```bash
+curl localhost:3000/workflow/<id>
+# {"runtimeStatus":1,"customStatus":"done","output":"HELLO, WORLD!",...}
 ```

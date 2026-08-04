@@ -16,7 +16,10 @@ import {
   DAPR_PUBSUB_METADATA,
   DAPR_ACTOR_METADATA,
   DAPR_ACTOR_STATE_METADATA,
+  DAPR_ACTIVITY_METADATA,
+  DAPR_WORKFLOW_METADATA,
 } from './constants';
+import { DaprActivity, DaprActivityMetadata } from './dapr-activity.decorator';
 import { DaprActorOnEvent } from './dapr-actor-on-event.decorator';
 import { State } from './dapr-actor-state.decorator';
 import { DaprActor, DaprActorMetadata } from './dapr-actor.decorator';
@@ -25,16 +28,31 @@ import { DaprContextService } from './dapr-context-service';
 import { DaprEventEmitter } from './dapr-event-emitter.service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprPubSub, DaprPubSubMetadata } from './dapr-pubsub.decorator';
+import { DaprWorkflow, DaprWorkflowMetadata } from './dapr-workflow.decorator';
 import { DaprLoader } from './dapr.loader';
-import { DaprContextProvider, DaprModule } from './dapr.module';
+import { DaprContextProvider, DaprModule, DaprModuleWorkflowOptions } from './dapr.module';
 import { getTraceId, withExtractedContext, withTracedContext } from './opentelemetry/trace';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
+import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
+import {
+  ActivityInput,
+  ActivityOutput,
+  expect,
+  Workflow,
+  workflowInput,
+  WorkflowInput,
+  workflowOutput,
+  WorkflowReturn,
+} from './workflow/workflow';
+import { WorkflowActivity } from './workflow/workflow-activity';
 
 export {
   DAPR_BINDING_METADATA,
   DAPR_PUBSUB_METADATA,
   DAPR_ACTOR_METADATA,
   DAPR_ACTOR_STATE_METADATA,
+  DAPR_ACTIVITY_METADATA,
+  DAPR_WORKFLOW_METADATA,
   DaprMetadataAccessor,
   DaprBindingMetadata,
   DaprBinding,
@@ -45,6 +63,7 @@ export {
   DaprActor,
   DaprLoader,
   DaprModule,
+  DaprModuleWorkflowOptions,
   DaprActorClient,
   DaprContextService,
   DaprContextProvider,
@@ -65,4 +84,19 @@ export {
   decompressValue,
   isCompressedEnvelope,
   maybeDecompressValue,
+  // Workflows
+  DaprWorkflow,
+  DaprWorkflowMetadata,
+  DaprActivity,
+  DaprActivityMetadata,
+  DaprWorkflowClient,
+  Workflow,
+  WorkflowActivity,
+  WorkflowInput,
+  WorkflowReturn,
+  ActivityInput,
+  ActivityOutput,
+  expect,
+  workflowOutput,
+  workflowInput,
 };

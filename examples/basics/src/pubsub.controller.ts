@@ -14,7 +14,7 @@ export class PubsubController {
     this.logger.log(`Dapr Client running on ${daprClient.options.daprPort}`);
   }
 
-  @Post('pubsub/:topic')
+  @Post('pubsub/:topic?')
   async pubsub(@Param('topic') topic = 'events') {
     const message: Message = { hello: Date.now().toString() };
     console.log('message', message);
@@ -26,7 +26,7 @@ export class PubsubController {
     );
   }
 
-  @DaprPubSub({ name: 'eventhub-pubsub', topicName: 'events' })
+  @DaprPubSub({ name: 'pubsub', topicName: 'events' })
   pubSubHandler(message: Message): void {
     console.log(message);
     this.logger.log(`Received topic message:`, message);
