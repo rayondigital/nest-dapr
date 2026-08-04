@@ -15,7 +15,7 @@ Additional monkey patches are applied to the SDK to support NestJS dependency in
 - [x] [Bindings](https://docs.dapr.io/developing-applications/building-blocks/bindings/bindings-overview/)
 - [x] [Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/)
 - [x] [Distributed Lock](https://docs.dapr.io/developing-applications/building-blocks/distributed-lock/)
-- [ ] [State](https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/)
+- [x] [State](https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/)
 - [ ] [Service Invocation](https://docs.dapr.io/developing-applications/building-blocks/service-invocation/service-invocation-overview/)
 
 
@@ -342,6 +342,55 @@ export class OrderService {
 ```
 
 The default lock store name (`lockstore`) can be changed via `lockClient.setDefaultName('my-lock-store')`, or overridden per-call via the `storeName` argument/option.
+
+## State Management
+
+`DaprStateClient` is a thin NestJS-friendly wrapper around the Dapr JS SDK's [State Management API](https://docs.dapr.io/developing-applications/building-blocks/state-management/), injectable via DI like any other Nest provider.
+
+It has two tiers of methods:
+- **Raw** (`getRawValue`, `setRawValue`, `getBulk`, `save`, `delete`, `transaction`) — exactly what the SDK returns, no decompression, no hydration.
+- **Typed** (`getObject`, `saveObject`) — compression-aware, and will call `toJSON`/`fromJSON` on your value automatically if it looks like one.
+
+```typescript
+class Order implements IState {
+  id: string;
+  total: number;
+
+  toJSON() {
+    return { id: this.id, total: this.total };
+  }
+
+  fromJSON(json: any): this {
+    this.id = json.id;
+    this.total = json.total;
+    return this;
+  }
+}
+
+@Injectable()
+export class OrderService {
+  constructor(private readonly stateClient: DaprStateClient) {}
+
+  async saveOrder(order: Order) {
+    // Calls order.toJSON() automatically, and gzip-compresses it before saving
+    await this.stateClient.saveObject(order.id, order, { compressed: true });
+  }
+
+  async getOrder(id: string): Promise<Order> {
+    // Decompresses (if needed) and calls Order.fromJSON() to restore the type
+    return this.stateClient.getObject(id, Order);
+  }
+
+  async getOrderRaw(id: string) {
+    // No hydration — exactly what the state store returns
+    return this.stateClient.getRawValue(id);
+  }
+}
+```
+
+The default state store name (`statestore`) can be changed via `stateClient.setDefaultName('my-state-store')`, or overridden per-call via the `storeName` argument.
+
+> Note: `query()` is intentionally not exposed. Only a handful of state store components support querying, and Dapr has flagged the entire state-query feature for deprecation in a future release.
 
 ## PubSub
 

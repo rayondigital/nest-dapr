@@ -152,6 +152,19 @@ export class DaprSidecarEmulator {
       res.json(keys.map((key) => ({ key, data: store.get(key) ?? null })));
     });
 
+    // State store — transaction (upsert/delete applied atomically to the in-memory map)
+    this.app.post('/v1.0/state/:storeName/transaction', (req, res) => {
+      const store = this.storeFor(req.params.storeName);
+      const operations = Array.isArray(req.body?.operations) ? req.body.operations : [];
+      for (const op of operations) {
+        const key = op?.request?.key;
+        if (typeof key !== 'string') continue;
+        if (op.operation === 'delete') store.delete(key);
+        else store.set(key, op.request.value);
+      }
+      res.status(204).send();
+    });
+
     // Actor method invocation — proxy to app
     this.app.post('/v1.0/actors/:actorType/:actorId/method/:methodName', async (req, res) => {
       const { actorType, actorId, methodName } = req.params;
