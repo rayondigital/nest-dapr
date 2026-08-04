@@ -1,3 +1,5 @@
+import { LockResponse } from '@dapr/dapr/types/lock/LockResponse';
+import { LockStatus, UnlockResponse } from '@dapr/dapr/types/lock/UnlockResponse';
 import { ActorRuntimeService } from './actors/actor-runtime.service';
 import { DaprClientCache } from './actors/client-cache';
 import { DaprActorClient } from './actors/dapr-actor-client.service';
@@ -31,6 +33,7 @@ import { DaprPubSub, DaprPubSubMetadata } from './dapr-pubsub.decorator';
 import { DaprWorkflow, DaprWorkflowMetadata } from './dapr-workflow.decorator';
 import { DaprLoader } from './dapr.loader';
 import { DaprContextProvider, DaprModule, DaprModuleWorkflowOptions } from './dapr.module';
+import { DaprLockAcquisitionError, DaprLockClient, WithLockOptions } from './lock/dapr-lock-client.service';
 import { getTraceId, withExtractedContext, withTracedContext } from './opentelemetry/trace';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
@@ -69,6 +72,12 @@ export {
   DaprContextProvider,
   ActorRuntimeService,
   DaprPubSubClient,
+  DaprLockClient,
+  DaprLockAcquisitionError,
+  WithLockOptions,
+  LockResponse,
+  LockStatus,
+  UnlockResponse,
   DaprClientCache,
   DaprEventEmitter,
   StatefulActor,

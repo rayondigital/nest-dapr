@@ -11,6 +11,7 @@ import { DaprEventEmitter } from './dapr-event-emitter.service';
 import { DaprEventSubscriberLoader } from './dapr-event-subscriber.loader';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprLoader } from './dapr.loader';
+import { DaprLockClient } from './lock/dapr-lock-client.service';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
 
@@ -137,6 +138,7 @@ export class DaprModule {
         DaprActorClient,
         DaprPubSubClient,
         DaprWorkflowClient,
+        DaprLockClient,
         DaprEventEmitter,
         ActorRuntimeService,
         Reflector,
@@ -150,6 +152,7 @@ export class DaprModule {
         ActorRuntimeService,
         DaprActorClient,
         DaprWorkflowClient,
+        DaprLockClient,
         DaprEventSubscriberLoader,
         DaprEventEmitter,
       ],
@@ -189,6 +192,7 @@ export class DaprModule {
         DaprActorClient,
         DaprPubSubClient,
         DaprWorkflowClient,
+        DaprLockClient,
         DaprEventEmitter,
         ActorRuntimeService,
         Reflector,
@@ -202,6 +206,7 @@ export class DaprModule {
         ActorRuntimeService,
         DaprActorClient,
         DaprWorkflowClient,
+        DaprLockClient,
         DaprEventSubscriberLoader,
         DaprEventEmitter,
       ],

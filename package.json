@@ -12,6 +12,7 @@
     "lint": "eslint \"{lib,tests}/**/*.ts\" --fix",
     "test": "jest --runInBand",
     "test:in-memory": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components npm run test",
+    "test:emulator": "cross-env DAPR_TEST_MODE=emulator jest --runInBand",
     "start:test": "nodemon tests/e2e/main.ts",
     "start:dapr": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components",
     "push:version": "git push --follow-tags"
@@ -40,7 +41,7 @@
   "dependencies": {
     "@dapr/dapr": "^3.18.0",
     "async-lock": "^1.4.1",
-    "node-fetch": "^2.6.7",
+    "node-fetch": "^2.6.7 || ^3.0.0",
     "whatwg-url": "^14.0.0"
   },
   "devDependencies": {
@@ -63,6 +64,7 @@
     "@types/supertest": "^2.0.11",
     "@typescript-eslint/eslint-plugin": "^7.18.0",
     "axios": "^1.16.1",
+    "cross-env": "^10.1.0",
     "eslint": "^8.57.1",
     "eslint-config-prettier": "^8.10.0",
     "eslint-plugin-import": "^2.30.0",

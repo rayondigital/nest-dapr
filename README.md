@@ -14,7 +14,7 @@ Additional monkey patches are applied to the SDK to support NestJS dependency in
 - [x] [PubSub](https://docs.dapr.io/developing-applications/building-blocks/pubsub/pubsub-overview/)
 - [x] [Bindings](https://docs.dapr.io/developing-applications/building-blocks/bindings/bindings-overview/)
 - [x] [Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/)
-- [ ] [Distributed Lock](https://docs.dapr.io/developing-applications/building-blocks/distributed-lock/)
+- [x] [Distributed Lock](https://docs.dapr.io/developing-applications/building-blocks/distributed-lock/)
 - [ ] [State](https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/)
 - [ ] [Service Invocation](https://docs.dapr.io/developing-applications/building-blocks/service-invocation/service-invocation-overview/)
 
@@ -300,6 +300,48 @@ export class WorkflowController {
   }
 }
 ```
+
+## Distributed Lock
+
+`DaprLockClient` is a thin NestJS-friendly wrapper around the Dapr JS SDK's [Distributed Lock API](https://docs.dapr.io/developing-applications/building-blocks/distributed-lock/), injectable via DI like any other Nest provider.
+
+```typescript
+@Injectable()
+export class OrderService {
+  constructor(private readonly lockClient: DaprLockClient) {}
+
+  async processOrder(orderId: string) {
+    // Acquires the lock, runs the callback, and always releases the lock afterwards
+    // (even if the callback throws). Throws DaprLockAcquisitionError if the lock
+    // is already held by someone else.
+    return this.lockClient.withLock(
+      orderId,
+      async () => {
+        // Critical section protected by the distributed lock
+        return this.doProcessOrder(orderId);
+      },
+      { expiryInSeconds: 30, storeName: 'lockstore' },
+    );
+  }
+
+  async tryProcessOrder(orderId: string) {
+    // Or manage the lock manually
+    const lockOwner = randomUUID();
+    const acquired = await this.lockClient.tryLock(orderId, lockOwner, 30);
+    if (!acquired) {
+      return false;
+    }
+    try {
+      await this.doProcessOrder(orderId);
+    } finally {
+      await this.lockClient.unlock(orderId, lockOwner);
+    }
+    return true;
+  }
+}
+```
+
+The default lock store name (`lockstore`) can be changed via `lockClient.setDefaultName('my-lock-store')`, or overridden per-call via the `storeName` argument/option.
 
 ## PubSub
 
