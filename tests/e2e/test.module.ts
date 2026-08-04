@@ -15,6 +15,7 @@ import { CreateEntityActivity, GetEntityActivity, HelloActivity, HelloWorkflow }
 import { EntityService } from '../src/entity.service';
 import { StatefulReminderActor } from '../src/stateful-reminder.actor';
 import { GlobalCounterActor } from '../src/global-counter.actor';
+import { EchoService } from '../src/echo.service';
 import { parseDaprCommunicationProtocol, getDaprPort } from '../../lib/environment';
 
 @Module({
@@ -95,6 +96,7 @@ import { parseDaprCommunicationProtocol, getDaprPort } from '../../lib/environme
     ContextAwareActor,
     GlobalCounterActor,
     StatelessPubSubActor,
+    EchoService,
     HelloActivity,
     CreateEntityActivity,
     GetEntityActivity,

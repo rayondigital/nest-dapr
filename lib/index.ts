@@ -29,6 +29,7 @@ import {
   DAPR_ACTOR_STATE_METADATA,
   DAPR_ACTIVITY_METADATA,
   DAPR_WORKFLOW_METADATA,
+  DAPR_HANDLER_METADATA,
 } from './constants';
 import { DaprActivity, DaprActivityMetadata } from './dapr-activity.decorator';
 import { DaprActorOnEvent } from './dapr-actor-on-event.decorator';
@@ -37,6 +38,7 @@ import { DaprActor, DaprActorMetadata } from './dapr-actor.decorator';
 import { DaprBinding, DaprBindingMetadata } from './dapr-binding.decorator';
 import { DaprContextService } from './dapr-context-service';
 import { DaprEventEmitter } from './dapr-event-emitter.service';
+import { DaprHandler, DaprHandlerMetadata } from './dapr-handler.decorator';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DaprPubSub, DaprPubSubMetadata } from './dapr-pubsub.decorator';
 import { DaprWorkflow, DaprWorkflowMetadata } from './dapr-workflow.decorator';
@@ -67,9 +69,12 @@ export {
   DAPR_ACTOR_STATE_METADATA,
   DAPR_ACTIVITY_METADATA,
   DAPR_WORKFLOW_METADATA,
+  DAPR_HANDLER_METADATA,
   DaprMetadataAccessor,
   DaprBindingMetadata,
   DaprBinding,
+  DaprHandlerMetadata,
+  DaprHandler,
   DaprPubSubMetadata,
   DaprPubSub,
   DaprActorMetadata,
