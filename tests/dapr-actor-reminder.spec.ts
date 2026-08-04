@@ -49,12 +49,19 @@ describe('DaprActorReminder', () => {
 
       await actor.schedule();
 
-      // Wait 10 seconds for the reminder to trigger 3 times
-      await sleep(1000, 10);
+      try {
+        // Wait 10 seconds for the reminder to trigger 3 times
+        await sleep(1000, 10);
 
-      const value = await actor.getCounter();
-      expect(value).toBeDefined();
-      expect(value).toBeGreaterThanOrEqual(3);
+        const value = await actor.getCounter();
+        expect(value).toBeDefined();
+        expect(value).toBeGreaterThanOrEqual(3);
+      } finally {
+        // Reminders are durable and outlive the app/sidecar unless explicitly unregistered
+        // (its TTL is 30s, far longer than this test), so the sidecar would otherwise keep
+        // retrying it against a closed app long after this suite tears down.
+        await actor.stop();
+      }
     });
   });
 
