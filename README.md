@@ -6,6 +6,7 @@ Develop NestJs microservices using [Dapr](https://dapr.io/) pubsub, actors and b
 # Description
 
 Dapr Module for [Nest](https://github.com/nestjs/nest) built on top of the latest [Dapr JS SDK](https://github.com/dapr/js-sdk).
+Additional monkey patches are applied to the SDK to support NestJS dependency injection, decorators, observability and lifecycle hooks.
 
 
 # Supported features
@@ -114,6 +115,10 @@ export class AppController {
 
 ## Actors
 
+> Note: Actors communicate via HTTP and require the Dapr sidecar to be running with HTTP enabled. See [DaprServer](#dapr-server) section for more information.
+> The port for HTTP is set in the `DAPR_HTTP_PORT` environment variable.
+> Actors may communicate over gRPC in the future, but this is not yet supported.
+
 Create actors and connect them to your NestJS application using the `@DaprActor` decorator.
 This decorator takes in the interface of the actor, and marks the Actor as transient inside the NestJS
 dependency injection container.
@@ -188,6 +193,9 @@ export class CounterController {
 ```
 
 ## Workflows
+
+> Note: Workflows communicate via GRPC and require the Dapr sidecar to be running with GRPC enabled. See [DaprServer](#dapr-server) section for more information.
+> The port for GRPC is set in the `DAPR_GRPC_PORT` environment variable.
 
 Workflows and Activities are annotated with the `@DaprWorkflow` and `@DaprActivity` decorators respectively.
 When added to the `providers` array of a NestJS module, they are automatically registered with the Dapr server.
