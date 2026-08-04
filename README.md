@@ -24,6 +24,24 @@ Dapr Module for [Nest](https://github.com/nestjs/nest) built on top of the lates
 npm i @rayondigital/nest-dapr
 ```
 
+## Peer dependencies
+
+This library depends on:
+- `nestjs-cls`
+- `eventemitter2`
+- `rxjs`
+- `@opentelemetry/api`
+
+`nest-dapr` declares its NestJS-ecosystem dependencies as [peer dependencies](https://docs.npmjs.com/cli/v10/configuring-npm/package-json#peerdependencies) rather than bundling its own copies, so your app shares a single instance of them — this matters in particular for `nestjs-cls`, whose context propagation depends on there being exactly one shared instance across your app.
+
+Depending on your package manager, peer dependencies aren't always installed automatically. `nestjs-cls`, `eventemitter2` and `@opentelemetry/api` are required from the moment you import `DaprModule` (not optional), so if you hit `Cannot find module 'nestjs-cls'` or similar, install them explicitly:
+
+```bash
+npm i nestjs-cls eventemitter2 @opentelemetry/api
+```
+
+A standard Nest project (scaffolded via `nest new`) already provides the remaining peer dependencies — `@nestjs/common`, `@nestjs/core`, `@nestjs/platform-express` and `rxjs`.
+
 # Requirements
 
 Install [Dapr](https://dapr.io/) as per getting started [guide](https://docs.dapr.io/getting-started/). Ensure Dapr is running with
