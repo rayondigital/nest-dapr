@@ -201,6 +201,123 @@ describe('state-codec', () => {
     });
   });
 
+  describe('hydrateStateValue with primitive/Date types (regression: no silent boxing/corruption)', () => {
+    it('returns the real primitive for Number, not a boxed Number wrapper', async () => {
+      const value = await hydrateStateValue<number>(42, { type: Number });
+      expect(value).toBe(42);
+      expect(typeof value).toBe('number');
+    });
+
+    it('returns the real primitive for String, not a boxed String wrapper', async () => {
+      const value = await hydrateStateValue<string>('hello', { type: String });
+      expect(value).toBe('hello');
+      expect(typeof value).toBe('string');
+    });
+
+    it('returns the real primitive for Boolean, not a boxed Boolean wrapper', async () => {
+      const value = await hydrateStateValue<boolean>(true, { type: Boolean });
+      expect(value).toBe(true);
+      expect(typeof value).toBe('boolean');
+    });
+
+    it('reconstructs the exact Date, not today\'s date with garbage properties', async () => {
+      const iso = '2024-01-01T00:00:00.000Z';
+      const value = await hydrateStateValue<Date>(iso, { type: Date });
+      expect(value).toBeInstanceOf(Date);
+      expect(value.toISOString()).toBe(iso);
+      expect(Object.keys(value)).toHaveLength(0);
+    });
+
+    it('still reconstructs arrays correctly (object-shaped, unaffected by the primitive guard)', async () => {
+      const value = await hydrateStateValue<string[]>(['a', 'b', 'c'], { type: Array });
+      expect(value).toEqual(['a', 'b', 'c']);
+    });
+
+    it('falls back to the raw value for a non-object, non-special-cased raw value with a type', async () => {
+      // e.g. a plain object `type` used on a raw value that isn't object-shaped
+      const value = await hydrateStateValue<any>(42, { type: Object });
+      expect(value).toBe(42);
+    });
+
+    // `type` is coerced, not just used to avoid boxing — this is what lets a
+    // stored value written under an older shape (e.g. a string) come back
+    // correctly typed once the declared type changes (e.g. to a number),
+    // without any extra migration code. See the "type migration" describe
+    // block below for the full scenario this enables.
+    it('coerces a raw string into a real number when type is Number', async () => {
+      const hydrated = await hydrateStateValue<number>('42', { type: Number });
+      expect(typeof hydrated).toBe('number');
+      expect(hydrated).toBe(42);
+    });
+
+    it('coerces a raw number into a real string when type is String', async () => {
+      const hydrated = await hydrateStateValue<string>(42, { type: String });
+      expect(typeof hydrated).toBe('string');
+      expect(hydrated).toBe('42');
+    });
+
+    it('coerces the string forms "true"/"false" correctly, avoiding the Boolean("false") === true trap', async () => {
+      // Boolean("false") is `true` in plain JS — any non-empty string is truthy.
+      // A naive coercion here would silently invert a stored `false`.
+      expect(await hydrateStateValue<boolean>('false', { type: Boolean })).toBe(false);
+      expect(await hydrateStateValue<boolean>('true', { type: Boolean })).toBe(true);
+      // Actual booleans and other values still coerce sensibly.
+      expect(await hydrateStateValue<boolean>(false, { type: Boolean })).toBe(false);
+      expect(await hydrateStateValue<boolean>(1, { type: Boolean })).toBe(true);
+      expect(await hydrateStateValue<boolean>(0, { type: Boolean })).toBe(false);
+    });
+
+    it('a coerced value round-trips through a subsequent save as the new type, not the old one', async () => {
+      const hydrated = await hydrateStateValue<number>('42', { type: Number });
+      const savedAgain = await dehydrateStateValue(hydrated, { type: undefined });
+      expect(typeof savedAgain).toBe('number');
+      expect(savedAgain).toBe(42);
+    });
+  });
+
+  describe('type migration across versions (e.g. v1 stored a string, v2 declares it as a number)', () => {
+    it('reads old string-shaped data correctly once the declared type changes to Number', async () => {
+      // Simulates data written by an older version of the code, before the
+      // @State()/getObject `type` was changed from String to Number.
+      const legacyStoredValue = '42';
+
+      const readByNewCode = await hydrateStateValue<number>(legacyStoredValue, { type: Number });
+      expect(readByNewCode).toBe(42);
+      expect(typeof readByNewCode).toBe('number');
+
+      // The next save re-persists it under the new type — no explicit
+      // migration step required, no `deserializeFn` needed for this case.
+      const rewritten = await dehydrateStateValue(readByNewCode, { type: undefined });
+      expect(rewritten).toBe(42);
+      expect(typeof rewritten).toBe('number');
+    });
+
+    it('uses deserializeFn for migrations coercion cannot handle (shape changes, not just primitive type changes)', async () => {
+      // e.g. v1 stored { amount: number } in cents; v2's class expects
+      // { amountInDollars: number }. This is a shape change, not something
+      // Number/String/Boolean/Date coercion can bridge — deserializeFn is the
+      // supported hook for exactly this.
+      class Price {
+        amountInDollars = 0;
+        fromJSON(json: any): this {
+          this.amountInDollars = json.amountInDollars;
+          return this;
+        }
+        toJSON() {
+          return { amountInDollars: this.amountInDollars };
+        }
+      }
+
+      const legacyShape = { amount: 250 }; // v1: cents, different field name
+      const deserializeFn = (raw: any) =>
+        'amount' in raw ? { amountInDollars: raw.amount / 100 } : raw;
+
+      const migrated = await hydrateStateValue<Price>(legacyShape, { type: Price, deserializeFn });
+      expect(migrated).toBeInstanceOf(Price);
+      expect(migrated.amountInDollars).toBe(2.5);
+    });
+  });
+
   describe('hydrateStateValue defaults (state absent)', () => {
     it('uses a static defaultValue', async () => {
       const value = await hydrateStateValue<number>(undefined, { type: Number, defaultValue: 42 });

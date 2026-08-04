@@ -92,6 +92,41 @@ export async function dehydrateStateValue(value: unknown, options: StateCodecOpt
 }
 
 function createInstanceFromRawValue(options: StateCodecOptions, rawValue?: any) {
+  // Primitive wrappers and Date can never be reconstructed by the "new up an
+  // instance, then copy the raw value's own keys onto it" strategy below —
+  // for a stored number/string/boolean that produces a boxed empty wrapper
+  // (e.g. `new Number()` -> 0), and for Date it produces *today's* date with
+  // garbage numeric-indexed properties copied from the ISO string. Coerce to
+  // the declared type directly instead, so `type` is honored, not just used
+  // to avoid boxing — a raw value that doesn't already match (e.g. a stored
+  // string "42" requested as Number) comes back correctly typed.
+  if (options.type === Number) {
+    return Number(rawValue);
+  }
+  if (options.type === String) {
+    return String(rawValue);
+  }
+  if (options.type === Boolean) {
+    // Boolean(rawValue) is unsafe for strings: Boolean("false") is `true` in
+    // JS (any non-empty string is truthy). Map the two string forms Dapr's
+    // own JSON round-trip could plausibly produce explicitly; anything else
+    // (an actual boolean, or something else entirely) falls through to the
+    // normal coercion.
+    if (rawValue === 'false') return false;
+    if (rawValue === 'true') return true;
+    return Boolean(rawValue);
+  }
+  if (options.type === Date) {
+    return new Date(rawValue);
+  }
+  // Anything else that isn't itself object-shaped (a plain object or array)
+  // can't be reconstructed by copying keys onto a fresh instance either.
+  // Returning undefined here lets the caller (hydrateStateValue) fall back
+  // to the raw value as-is, instead of silently producing a wrong instance.
+  if (rawValue === null || typeof rawValue !== 'object') {
+    return undefined;
+  }
+
   // This function is a little complex, but we're trying to be as nice to the
   // end user as possible: honor an explicit `serializable`, otherwise infer
   // it from whether `type` looks like an IState.

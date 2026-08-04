@@ -126,6 +126,25 @@ describe('DaprStateClient', () => {
       await stateClient.delete(key);
     });
 
+    it('round-trips a number as a real primitive, not a boxed Number', async () => {
+      const key = `obj-num-${randomUUID()}`;
+      await stateClient.saveObject(key, 42);
+      const restored = await stateClient.getObject<number>(key, Number);
+      expect(restored).toBe(42);
+      expect(typeof restored).toBe('number');
+      await stateClient.delete(key);
+    });
+
+    it('round-trips a Date correctly, not as today\'s date', async () => {
+      const key = `obj-date-${randomUUID()}`;
+      const original = new Date('2024-01-01T00:00:00.000Z');
+      await stateClient.saveObject(key, original);
+      const restored = await stateClient.getObject<Date>(key, Date);
+      expect(restored).toBeInstanceOf(Date);
+      expect(restored.getTime()).toBe(original.getTime());
+      await stateClient.delete(key);
+    });
+
     it('round-trips a plain (non-serializable) object', async () => {
       const key = `obj-plain-${randomUUID()}`;
       const value = { name: 'jeremy', roles: ['admin', 'user'] };
