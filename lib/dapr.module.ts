@@ -21,7 +21,7 @@ export interface DaprModuleOptions {
   serverPort?: string;
   serverGrpcPort?: string;
   communicationProtocol?: CommunicationProtocolEnum;
-  clientOptions?: DaprClientOptions;
+  clientOptions?: Partial<DaprClientOptions>;
   actorOptions?: DaprModuleActorOptions;
   workflowOptions?: DaprModuleWorkflowOptions;
   pubsubOptions?: DaprModulePubSubOptions;
@@ -68,12 +68,16 @@ export interface DaprModuleOptionsFactory {
   createDaprModuleOptions(): Promise<DaprModuleOptions> | DaprModuleOptions;
 }
 
-export function createOptionsProvider(options: DaprModuleOptions): any {
+export function normalizeDaprModuleOptions(options?: DaprModuleOptions): DaprModuleOptions {
+  const normalized = options ?? {};
   // Setup default options for actor clients if not provided.
   // Reentrancy is enabled by default, with a max stack depth of 6 calls (which is a sensible default).
   // See https://docs.dapr.io/developing-applications/building-blocks/actors/actors-runtime-config/
-  if (!options.clientOptions.actor) {
-    options.clientOptions.actor = {
+  if (!normalized.clientOptions) {
+    normalized.clientOptions = {};
+  }
+  if (!normalized.clientOptions.actor) {
+    normalized.clientOptions.actor = {
       reentrancy: {
         enabled: true,
         maxStackDepth: 6,
@@ -83,12 +87,12 @@ export function createOptionsProvider(options: DaprModuleOptions): any {
     };
   }
   // Setup default options for workflows if not provided.
-  if (!options.workflowOptions) {
-    options.workflowOptions = {
+  if (!normalized.workflowOptions) {
+    normalized.workflowOptions = {
       enabled: true,
     };
   }
-  return { provide: DAPR_MODULE_OPTIONS_TOKEN, useValue: options || {} };
+  return normalized;
 }
 
 export interface DaprModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> {
@@ -102,20 +106,21 @@ export interface DaprModuleAsyncOptions extends Pick<ModuleMetadata, 'imports'> 
 @Module({})
 export class DaprModule {
   static register(options?: DaprModuleOptions): DynamicModule {
+    const normalizedOptions = normalizeDaprModuleOptions(options);
     return {
       global: true,
       module: DaprModule,
       imports: [DiscoveryModule, ClsModule],
       providers: [
-        createOptionsProvider(options),
+        { provide: DAPR_MODULE_OPTIONS_TOKEN, useValue: normalizedOptions },
         {
           provide: DaprServer,
           scope: Scope.DEFAULT,
           useValue: new DaprServer({
-            serverHost: options.serverHost,
-            serverPort: options.serverPort,
-            clientOptions: options.clientOptions,
-            communicationProtocol: options.communicationProtocol,
+            serverHost: normalizedOptions.serverHost,
+            serverPort: normalizedOptions.serverPort,
+            clientOptions: normalizedOptions.clientOptions,
+            communicationProtocol: normalizedOptions.communicationProtocol,
           }),
         },
         {
@@ -135,7 +140,7 @@ export class DaprModule {
         DaprEventEmitter,
         ActorRuntimeService,
         Reflector,
-        ...(options.extraProviders || []),
+        ...(normalizedOptions.extraProviders || []),
       ],
       exports: [
         DaprClient,
@@ -155,7 +160,7 @@ export class DaprModule {
     return {
       global: true,
       module: DaprModule,
-      imports: [...options.imports, DiscoveryModule],
+      imports: [...(options.imports || []), DiscoveryModule],
       providers: [
         ...this.createAsyncProviders(options),
         {
@@ -220,13 +225,14 @@ export class DaprModule {
     if (options.useFactory) {
       return {
         provide: DAPR_MODULE_OPTIONS_TOKEN,
-        useFactory: options.useFactory,
+        useFactory: async (...args: any[]) => normalizeDaprModuleOptions(await options.useFactory(...args)),
         inject: options.inject || [],
       };
     }
     return {
       provide: DAPR_MODULE_OPTIONS_TOKEN,
-      useFactory: async (optionsFactory: DaprModuleOptionsFactory) => optionsFactory.createDaprModuleOptions(),
+      useFactory: async (optionsFactory: DaprModuleOptionsFactory) =>
+        normalizeDaprModuleOptions(await optionsFactory.createDaprModuleOptions()),
       inject: [options.useExisting || options.useClass],
     };
   }

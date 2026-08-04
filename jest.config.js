@@ -1,10 +1,9 @@
 module.exports = {
-  verbose: false,
+  verbose: true,
   moduleFileExtensions: ['js', 'json', 'ts'],
   rootDir: 'tests',
   testEnvironment: 'node',
   testRegex: '.spec.ts$',
-  bail: 1,
   maxWorkers: 1,
   testTimeout: 30000,
   transform: {

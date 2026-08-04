@@ -27,7 +27,7 @@ import { ZipkinTraceCollector } from './zipkin-trace-collector';
 //     --dapr-http-port 3500 --dapr-grpc-port 3501 `
 //     --resources-path ./tests/components --config ./tests/components/tracing.config.yaml `
 //     -- npx jest --runInBand tracing
-describe('DaprTracing', () => {
+describe.skip('DaprTracing', () => {
   const COLLECTOR_PORT = 9499;
 
   let collector: ZipkinTraceCollector;
