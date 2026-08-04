@@ -1,4 +1,4 @@
-import { Test } from '@nestjs/testing';
+import { Test, TestingModule } from '@nestjs/testing';
 import { ClsModule } from 'nestjs-cls';
 import { DaprClient, DaprServer } from '@dapr/dapr';
 import { DaprModule } from '../lib';
@@ -16,6 +16,15 @@ import { TestAsyncModule, TestAsyncUseClassModule } from './module/test-async.mo
 // `registerAsync()` and resolving the resulting providers doesn't throw.
 describe('DaprModule', () => {
   describe('register', () => {
+    let testingModule: TestingModule | undefined;
+
+    afterEach(async () => {
+      // Providers created via register()/registerAsync() aren't torn down on their own
+      // (e.g. DaprServer's underlying client) — an unclosed module leaves the process hanging.
+      await testingModule?.close();
+      testingModule = undefined;
+    });
+
     it('does not throw when called with no arguments (README minimal example)', () => {
       expect(() => DaprModule.register()).not.toThrow();
     });
@@ -25,7 +34,7 @@ describe('DaprModule', () => {
     });
 
     it('compiles a Nest module using the README minimal example and resolves providers', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [TestSyncModule],
       }).compile();
 
@@ -34,7 +43,7 @@ describe('DaprModule', () => {
     });
 
     it('defaults clientOptions.actor (reentrancy) when clientOptions is not provided', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [ClsModule.forRoot({ global: true }), DaprModule.register()],
       }).compile();
 
@@ -49,7 +58,7 @@ describe('DaprModule', () => {
     });
 
     it('preserves user-provided clientOptions.actor instead of overriding it', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [
           ClsModule.forRoot({ global: true }),
           DaprModule.register({
@@ -70,6 +79,13 @@ describe('DaprModule', () => {
   });
 
   describe('registerAsync', () => {
+    let testingModule: TestingModule | undefined;
+
+    afterEach(async () => {
+      await testingModule?.close();
+      testingModule = undefined;
+    });
+
     it('does not throw when called with only a useFactory (no imports, no clientOptions)', () => {
       expect(() =>
         DaprModule.registerAsync({
@@ -79,7 +95,7 @@ describe('DaprModule', () => {
     });
 
     it('compiles a Nest module using a minimal useFactory and resolves providers', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [TestAsyncModule],
       }).compile();
 
@@ -88,7 +104,7 @@ describe('DaprModule', () => {
     });
 
     it('applies the same clientOptions.actor / workflowOptions defaults as register()', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [TestAsyncModule],
       }).compile();
 
@@ -103,7 +119,7 @@ describe('DaprModule', () => {
     });
 
     it('compiles a Nest module using useClass and resolves providers', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [TestAsyncUseClassModule],
       }).compile();
 
@@ -115,7 +131,7 @@ describe('DaprModule', () => {
     });
 
     it('propagates useFactory-provided clientOptions untouched', async () => {
-      const testingModule = await Test.createTestingModule({
+      testingModule = await Test.createTestingModule({
         imports: [
           ClsModule.forRoot({ global: true }),
           DaprModule.registerAsync({
