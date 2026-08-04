@@ -147,7 +147,7 @@ export class CounterActor
   counter: number;
 
   async onActivate(): Promise<void> {
-    this.counter = await this.getState('counter', 0);
+    this.counter = await this.getStateValue('counter', 0);
     return super.onActivate();
   }
 
@@ -158,7 +158,7 @@ export class CounterActor
     // You probably will never want to do this, but we're just demonstrating a singleton service.
     await this.cacheService.increment('total');
 
-    await this.setState('counter', this.counter);
+    await this.setStateValue('counter', this.counter);
     await this.saveState();
     return this.counter;
   }
@@ -168,6 +168,69 @@ export class CounterActor
   }
 }
 ```
+
+### Actor State
+
+`StatefulActor` gives you four ways to persist state, in increasing order of correctness. `<T>` generic parameters are erased at compile time — the only thing that exists at runtime is whatever concrete class/type you actually pass or declare, so "reconstruction" below always means "what really happens when the JSON comes back off the wire," not what TypeScript's types promise you.
+
+| Strategy | How | Reconstruction | Best for |
+|---|---|---|---|
+| **Raw** | `this.getStateValue(name, default)` / `this.setStateValue(name, value)` — no decorator | None. You get back exactly what was stored (transparently decompressed if needed) | A single primitive/plain value under one key |
+| **`StatefulActorOf<TState>`** | Extend `StatefulActorOf<TState>` instead of `StatefulActor`; use `this.state` | None. `TState` is compile-time only — whatever's stored is trusted as-is, like `JSON.parse(x) as TState` | A whole plain-data blob per actor, no class behavior needed |
+| **`@State()` on a plain class** | `@State() foo: PlainClass` where `PlainClass` has no `toJSON`/`fromJSON` | Best-effort: `new PlainClass()`, then the stored value's own keys are shallow-copied onto it | Simple, flat classes with a working no-arg constructor — use sparingly |
+| **`@State()` on an `IState` class (recommended)** | `@State() foo: MyState` where `MyState implements IState` (`toJSON`/`fromJSON`) | Guaranteed — your `fromJSON` fully controls reconstruction, including any nested objects/arrays | Anything with nested state, custom construction, or where correctness matters |
+
+The plain-class strategy has two sharp edges that made `IState` the recommended default:
+- **No nested reconstruction.** Nested objects/arrays come back as plain data, never as instances of their own classes — only the top-level `type` you declared gets instantiated.
+- **Silent fallback if construction fails.** If the class's constructor throws when called with no arguments, you get back a plain object, not an instance of your class — `instanceof` is `false` and every method is gone. Nothing catches this at compile time, because the generic type parameter that would have caught it doesn't exist at runtime.
+
+The recommended pattern, taken directly from this repo's own test actors:
+
+```typescript
+export class CounterState implements IState {
+  counter: number = 0;
+
+  fromJSON(json: any) {
+    this.counter = json.counter;
+    return this;
+  }
+
+  toJSON(): any {
+    return { counter: this.counter };
+  }
+}
+
+@DaprActor({ interfaceType: CounterActorInterface })
+export class CounterActor extends StatefulActor implements CounterActorInterface {
+  // A factory, not a shared object literal — every actor that falls back to
+  // this default gets its own instance. A static object here would be
+  // silently shared (and mutated) across every actor of this type.
+  @State({ defaultValue: () => new CounterState() })
+  state: CounterState;
+
+  async increment(): Promise<void> {
+    this.state.counter++;
+    await this.saveState();
+  }
+}
+```
+
+`@State()` also accepts `compressed: true` (gzip-envelopes the value on write, transparently unwrapped on read regardless of whether the flag is currently on), and `serialize`/`deserialize` hooks. Beyond normal (de)serialization, `deserialize` is the supported way to migrate data written by an older version of your actor — e.g. adapting a renamed/restructured field before `fromJSON` ever sees it:
+
+```typescript
+@State({
+  deserialize: (raw) => ('amount' in raw ? { amountInDollars: raw.amount / 100 } : raw),
+})
+price: Price;
+```
+
+Primitive type changes (e.g. a field that used to be a `string` and is now a `number`) don't need a `deserialize` hook at all — reading old data with the new declared type coerces it automatically (`Number`, `String`, `Boolean`, and `Date` are all handled).
+
+### Compression
+
+Setting `compressed: true` on `@State()` gzips the value (after `toJSON`/`serialize` have run) and stores it as a small `{ "$gz": "<base64>" }` envelope instead of the raw JSON — useful for cutting down the size of larger state values in the state store.
+
+Reads don't rely on the `compressed` flag at all: every read checks whether the stored value actually looks like a compression envelope and unwraps it if so, decompressing before `deserialize`/`fromJSON` ever see it. That means toggling `compressed` on or off is always safe — data written while it was on still decompresses correctly after you turn it off, and existing uncompressed data keeps reading fine after you turn it on.
 
 ### Actor Client
 
