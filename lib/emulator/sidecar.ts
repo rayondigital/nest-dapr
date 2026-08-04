@@ -285,6 +285,21 @@ export class DaprSidecarEmulator {
       res.json({ status: 0 }); // Success
     });
 
+    // Service invocation — proxy to app (any HTTP verb, method name may contain slashes)
+    this.app.all('/v1.0/invoke/:appId/method/*', async (req, res) => {
+      const methodPath = req.params[0];
+      try {
+        await this.proxyInvoke(req.method.toLowerCase(), `/${methodPath}`, req, res);
+      } catch (err) {
+        if (this.isShutdownError(err)) {
+          res.status(204).send();
+          return;
+        }
+        this.logger.error(`Service invocation failed ${req.params.appId}/${methodPath}: ${msg(err)}`);
+        res.status(500).json({ error: 'service_invocation_failed' });
+      }
+    });
+
     // PubSub — bulk
     this.app.post('/v1.0-alpha1/publish/bulk/:pubsubName/:topic', async (req, res) => {
       const { pubsubName, topic } = req.params;
@@ -467,6 +482,28 @@ export class DaprSidecarEmulator {
     console.log(r.status);
     console.log(r.data);
 
+    if (typeof r.data === 'object' || typeof r.data === 'number' || typeof r.data === 'boolean') {
+      res.status(r.status).json(r.data);
+      return;
+    }
+    res.status(r.status).send(r.data);
+  }
+
+  private async proxyInvoke(method: string, path: string, req: express.Request, res: express.Response): Promise<void> {
+    const headers: Record<string, string> = {};
+    for (const name of ['content-type', 'x-correlation-id', 'traceparent']) {
+      const value = req.headers?.[name];
+      if (value) headers[name] = Array.isArray(value) ? value.join(',') : value;
+    }
+    const queryIndex = req.originalUrl.indexOf('?');
+    const query = queryIndex >= 0 ? req.originalUrl.slice(queryIndex) : '';
+
+    const r = await this.http.request({ method, url: this.appUrl(path) + query, data: req.body, headers });
+
+    if (r.status === 204 || r.data === undefined) {
+      res.status(r.status).send();
+      return;
+    }
     if (typeof r.data === 'object' || typeof r.data === 'number' || typeof r.data === 'boolean') {
       res.status(r.status).json(r.data);
       return;

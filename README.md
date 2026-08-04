@@ -16,7 +16,7 @@ Additional monkey patches are applied to the SDK to support NestJS dependency in
 - [x] [Workflows](https://docs.dapr.io/developing-applications/building-blocks/workflow/workflow-overview/)
 - [x] [Distributed Lock](https://docs.dapr.io/developing-applications/building-blocks/distributed-lock/)
 - [x] [State](https://docs.dapr.io/developing-applications/building-blocks/state-management/state-management-overview/)
-- [ ] [Service Invocation](https://docs.dapr.io/developing-applications/building-blocks/service-invocation/service-invocation-overview/)
+- [x] [Service Invocation](https://docs.dapr.io/developing-applications/building-blocks/service-invocation/service-invocation-overview/)
 
 
 # Installation
@@ -54,8 +54,8 @@ dapr --version
 Output:
 
 ```
-CLI version: 1.15.1
-Runtime version: 1.15.4
+CLI version: 1.18.0
+Runtime version: 1.18.2
 ```
 
 # Quick start
@@ -455,6 +455,39 @@ The default state store name (`statestore`) can be changed via `stateClient.setD
 
 > Note: `query()` is intentionally not exposed. Only a handful of state store components support querying, and Dapr has flagged the entire state-query feature for deprecation in a future release.
 
+## Service Invocation
+
+[Service Invocation](https://docs.dapr.io/developing-applications/building-blocks/service-invocation/service-invocation-overview/) lets other Dapr-enabled services call methods on your app directly through the sidecar (as opposed to PubSub/Bindings, which are for asynchronous messaging).
+
+Use the `@DaprHandler` decorator to register a handler for incoming invocations. It's a Nest DI-aware wrapper around the Dapr JS SDK's [`server.invoker.listen()`](https://docs.dapr.io/developing-applications/sdks/js/js-server/#invocation-api) — same discovery/registration mechanism as `@DaprPubSub` and `@DaprBinding`, so it works on any `@Injectable()` provider or `@Controller()` registered in your module.
+
+```typescript
+import { Injectable } from '@nestjs/common';
+import { DaprHandler } from '@rayondigital/nest-dapr';
+import { DaprInvokerCallbackContent, HttpMethod } from '@dapr/dapr';
+
+@Injectable()
+export class GreeterService {
+  @DaprHandler({ path: 'hello-world', method: HttpMethod.GET })
+  helloWorld(data: DaprInvokerCallbackContent): any {
+    console.log('Received body: ', data.body);
+    console.log('Received metadata: ', data.metadata);
+    console.log('Received query: ', data.query);
+    console.log('Received headers: ', data.headers); // only available over HTTP
+
+    return { message: 'Hello from nest-dapr!' };
+  }
+}
+```
+
+`path` is the Dapr method name callers use — it corresponds to the `methodName` in `client.invoker.invoke(appId, methodName, ...)`. `method` is the HTTP verb the handler accepts (defaults to `GET`); it's ignored when the Dapr server is running gRPC-only. The handler may return a value (serialized back to the caller) or `void`.
+
+Call it from another service using `DaprClient` (already available via DI, see [DaprServer & DaprClient providers](#daprserver--daprclient-providers)):
+
+```typescript
+await this.daprClient.invoker.invoke('my-app-id', 'hello-world', HttpMethod.GET);
+```
+
 ## PubSub
 
 Create pubsub & topic names used for pubsub operations and message interface
@@ -832,3 +865,24 @@ Thanks to:
 # Licence
 
 Released under the [MIT](LICENSE) license. No warranty expressed or implied.
+
+# Testing
+
+```bash
+npm run test:in-memory
+```
+
+This is the primary test suite and should be your default when running tests locally or in CI. It starts a real Dapr sidecar (via the Dapr CLI) configured against the in-memory-backed components in `tests/components` (`pubsub.in-memory`, `state.in-memory`), then runs the full Jest suite against it — exercising the actual Dapr sidecar and `@dapr/dapr` SDK integration, not a mocked or emulated one.
+
+Prerequisites:
+- The [Dapr CLI](https://docs.dapr.io/getting-started/) installed locally (`dapr --version`).
+- Redis running locally on `localhost:6379` — `tests/components/lock.yaml` configures the lock store as `lock.redis`, so the distributed lock tests need a real Redis instance even though pubsub/state use in-memory components.
+
+Other test modes, useful in specific situations:
+
+| Command | Description |
+|---|---|
+| `npm run test:emulator` | Runs against the lightweight in-process Dapr sidecar emulator (`lib/emulator/sidecar.ts`) instead of a real sidecar. No Dapr CLI or Redis required, so it's the fastest option for quick local iteration — but it's a hand-rolled emulation of a subset of the Dapr HTTP API, so treat `test:in-memory` as the source of truth before merging. |
+| `npm run test` | Runs the Jest suite assuming a Dapr sidecar is already running externally (`DAPR_TEST_MODE` defaults to `real`). Pair with `npm run start:dapr` in a separate terminal if you want to run tests repeatedly without relaunching the sidecar each time. |
+
+Individual spec files can be targeted the usual Jest way, e.g. `npm run test:in-memory -- invoke` to run only `tests/dapr-invoke.spec.ts`.

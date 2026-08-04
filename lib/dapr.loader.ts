@@ -1,4 +1,10 @@
-import { AbstractActor, DaprPubSubStatusEnum, DaprServer, WorkflowRuntime } from '@dapr/dapr';
+import {
+  AbstractActor,
+  DaprInvokerCallbackContent,
+  DaprPubSubStatusEnum,
+  DaprServer,
+  WorkflowRuntime,
+} from '@dapr/dapr';
 import Class from '@dapr/dapr/types/Class';
 import {
   Inject,
@@ -268,12 +274,35 @@ export class DaprLoader implements OnModuleInit, OnApplicationBootstrap, OnAppli
     });
   }
 
+  private async registerDaprHandlerIfListener(instance: Record<string, any>, methodKey: string) {
+    const daprHandlerMetadata = this.daprMetadataAccessor.getDaprHandlerMetadata(instance[methodKey]);
+    if (!daprHandlerMetadata) {
+      return;
+    }
+    const { path, method } = daprHandlerMetadata;
+
+    this.logger.log(`Registering Dapr service invocation handler: ${method.toUpperCase()} ${path}`);
+    await this.daprServer.invoker.listen(
+      path,
+      async (data: DaprInvokerCallbackContent) => {
+        try {
+          return await instance[methodKey].call(instance, data);
+        } catch (err) {
+          this.logger.error(err, `Error in Dapr service invocation handler ${path}`);
+          throw err;
+        }
+      },
+      { method },
+    );
+  }
+
   private async registerHandlers(instanceWrapper: InstanceWrapper) {
     const instance = instanceWrapper.instance;
     const prototype = Object.getPrototypeOf(instance) || {};
     this.metadataScanner.scanFromPrototype(instance, prototype, async (methodKey: string) => {
       await this.subscribeToDaprPubSubEventIfListener(instance, methodKey);
       await this.subscribeToDaprBindingEventIfListener(instance, methodKey);
+      await this.registerDaprHandlerIfListener(instance, methodKey);
     });
   }
 
