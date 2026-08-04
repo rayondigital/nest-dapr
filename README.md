@@ -865,3 +865,24 @@ Thanks to:
 # Licence
 
 Released under the [MIT](LICENSE) license. No warranty expressed or implied.
+
+# Testing
+
+```bash
+npm run test:in-memory
+```
+
+This is the primary test suite and should be your default when running tests locally or in CI. It starts a real Dapr sidecar (via the Dapr CLI) configured against the in-memory-backed components in `tests/components` (`pubsub.in-memory`, `state.in-memory`), then runs the full Jest suite against it — exercising the actual Dapr sidecar and `@dapr/dapr` SDK integration, not a mocked or emulated one.
+
+Prerequisites:
+- The [Dapr CLI](https://docs.dapr.io/getting-started/) installed locally (`dapr --version`).
+- Redis running locally on `localhost:6379` — `tests/components/lock.yaml` configures the lock store as `lock.redis`, so the distributed lock tests need a real Redis instance even though pubsub/state use in-memory components.
+
+Other test modes, useful in specific situations:
+
+| Command | Description |
+|---|---|
+| `npm run test:emulator` | Runs against the lightweight in-process Dapr sidecar emulator (`lib/emulator/sidecar.ts`) instead of a real sidecar. No Dapr CLI or Redis required, so it's the fastest option for quick local iteration — but it's a hand-rolled emulation of a subset of the Dapr HTTP API, so treat `test:in-memory` as the source of truth before merging. |
+| `npm run test` | Runs the Jest suite assuming a Dapr sidecar is already running externally (`DAPR_TEST_MODE` defaults to `real`). Pair with `npm run start:dapr` in a separate terminal if you want to run tests repeatedly without relaunching the sidecar each time. |
+
+Individual spec files can be targeted the usual Jest way, e.g. `npm run test:in-memory -- invoke` to run only `tests/dapr-invoke.spec.ts`.
