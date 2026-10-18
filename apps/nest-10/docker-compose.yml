@@ -6,12 +6,10 @@ services:
   ############################
   main:
     container_name: basics-app
+    # Built from the repository root so the image includes the workspace library
     build:
-      dockerfile: ./Dockerfile
-    volumes:
-      - .:/usr/src/app
-    command:
-      [sh, -c, 'cd /usr/src/app && npm run start:prod']
+      context: ../..
+      dockerfile: apps/nest-10/Dockerfile
     ports:
       - 3000:3000 # NestJS
       - 3001:3001 # Dapr Server (NodeJS)
