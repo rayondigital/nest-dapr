@@ -7,8 +7,8 @@ import { SidecarContext } from '../lib/emulator/sidecar-context';
 // Verifies @DaprHandler-decorated methods can be reached via Dapr Service Invocation
 // (the sidecar's /v1.0/invoke/:appId/method/:path route, forwarded to the app).
 //
-// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- invoke
-// Real sidecar:  DAPR_TEST_MODE=real npm run test -- invoke
+// Emulator mode: DAPR_TEST_MODE=emulator pnpm test -- invoke
+// Real sidecar:  DAPR_TEST_MODE=real pnpm test -- invoke
 describe('DaprHandler (Service Invocation)', () => {
   let sidecar: SidecarContext;
   let testingModule: TestingModule;

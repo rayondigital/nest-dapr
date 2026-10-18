@@ -10,8 +10,8 @@ import { ClsService } from 'nestjs-cls';
 import { itWithContext } from './test.utils';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 
-// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- client
-// Real sidecar: DAPR_TEST_MODE=real npm run test -- client
+// Emulator mode: DAPR_TEST_MODE=emulator pnpm test -- client
+// Real sidecar: DAPR_TEST_MODE=real pnpm test -- client
 describe('DaprActorClient', () => {
   let sidecar: SidecarContext;
   let testingModule: TestingModule;

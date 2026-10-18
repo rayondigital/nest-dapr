@@ -19,9 +19,9 @@
     "test:cov": "jest --coverage",
     "test:debug": "node --inspect-brk -r tsconfig-paths/register -r ts-node/register node_modules/.bin/jest --runInBand",
     "test:e2e": "jest --config ./test/jest-e2e.json",
-    "start:dapr": "dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 npm run start",
-    "start:dapr:memory": "dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./memory-components npm run start",
-    "start:dapr:rabbit": "dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./rabbitmq-components npm run start",
+    "start:dapr": "dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 pnpm start",
+    "start:dapr:memory": "dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./memory-components pnpm start",
+    "start:dapr:rabbit": "dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./rabbitmq-components pnpm start",
     "docker:build": "docker build -t nest-dapr-example:latest ."
   },
   "dependencies": {
@@ -32,7 +32,7 @@
     "@nestjs/event-emitter": "^2.0.4",
     "@nestjs/platform-express": "^10.0.0",
     "@opentelemetry/api": "^1.9.0",
-    "@rayondigital/nest-dapr": "file:../..",
+    "@rayondigital/nest-dapr": "workspace:*",
     "eventemitter2": "^6.0.0",
     "nestjs-cls": "^5.0.0",
     "reflect-metadata": "^0.1.13",

@@ -4,14 +4,11 @@
   "description": "Develop NestJs microservices using Dapr pubsub, actors, workflows and other bindings",
   "main": "./dist/index.js",
   "types": "./dist/index.d.ts",
-  "workspaces": [
-    "examples/basics"
-  ],
   "scripts": {
     "build": "rimraf -rf dist && tsc -p tsconfig.build.json",
     "lint": "eslint \"{lib,tests}/**/*.ts\" --fix",
     "test": "jest --runInBand",
-    "test:in-memory": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components npm run test",
+    "test:in-memory": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components pnpm test",
     "test:emulator": "cross-env DAPR_TEST_MODE=emulator jest --runInBand",
     "start:test": "nodemon tests/e2e/main.ts",
     "start:dapr": "dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components",
@@ -91,12 +88,10 @@
     "access": "public",
     "registry": "https://registry.npmjs.org/"
   },
-  "resolutions": {
-    "whatwg-url": "^14.0.0"
-  },
   "engines": {
     "node": ">=18.0.0"
   },
+  "packageManager": "pnpm@12.14.0",
   "files": [
     "dist"
   ]

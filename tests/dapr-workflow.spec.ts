@@ -14,7 +14,7 @@ import { SidecarContext } from '../lib/emulator/sidecar-context';
 //   dapr run --app-id nest-dapr --app-protocol http --app-port 3001 \
 //     --dapr-http-port 3500 --dapr-grpc-port 3501 \
 //     --resources-path ./tests/components
-//   DAPR_TEST_MODE=real npm run test -- workflow
+//   DAPR_TEST_MODE=real pnpm test -- workflow
 describe('DaprWorkflow', () => {
   let sidecar: SidecarContext;
   let testingModule: TestingModule;

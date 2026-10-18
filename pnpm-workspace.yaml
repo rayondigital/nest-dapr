@@ -1,0 +1,9 @@
+packages:
+  - examples/basics
+
+# Dependency install scripts are blocked unless approved here.
+allowBuilds:
+  # postinstall only prints an opencollective funding banner
+  '@nestjs/core': false
+  # postinstall only warns about dependents' version ranges; nothing is built
+  protobufjs: false

@@ -4,19 +4,19 @@ Demonstrates Dapr integration with NestJS
 
 ## Getting Started
 
-This example is an npm workspace member of the root `nest-dapr` repo, and depends on `@rayondigital/nest-dapr`
-via a `file:../..` link — so it always runs against the local library source, not the published npm package.
+This example is a pnpm workspace member of the root `nest-dapr` repo, and depends on `@rayondigital/nest-dapr`
+via `workspace:*` — so it always runs against the local library source, not the published npm package.
 This makes it the easiest way to reproduce and fix library issues live:
 
 ```bash
 # From the repo root
-npm run build       # builds ../../dist
-npm install          # installs & links workspace members (only needed once, or after adding deps)
+pnpm install         # installs & links workspace members (only needed once, or after adding deps)
+pnpm build           # builds ../../dist
 cd examples/basics
-npm run start:dapr:memory
+pnpm start:dapr:memory
 ```
 
-After changing anything under `../../lib`, just re-run `npm run build` at the repo root and restart the app —
+After changing anything under `../../lib`, just re-run `pnpm build` at the repo root and restart the app —
 no republish or reinstall needed.
 
 ## Dapr Setup
@@ -53,15 +53,15 @@ The ports are:
 The quickest way to run locally, with no external dependencies (in-memory pubsub/state store):
 
 ```bash
-npm run start:dapr:memory
+pnpm start:dapr:memory
 ```
 
 Or against Redis pubsub/state via `./components` (see `docker-compose.yml` for Redis/Azurite):
 
 ```bash
-npm run start:dapr
+pnpm start:dapr
 # equivalent to:
-dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 npm run start
+dapr run --app-id basics --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 pnpm start
 ```
 
 ## PubSub test
