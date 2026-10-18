@@ -30,10 +30,7 @@ describe('DaprPubSubActor', () => {
     testingModule = await Test.createTestingModule({
       imports: [TestModule],
     }).compile();
-    app = testingModule.createNestApplication();
-    await app.init();
-    await app.listen(0);
-    daprServer = app.get<DaprServer>(DaprServer);
+    daprServer = testingModule.get(DaprServer);
     daprClient = testingModule.get(DaprClient);
     pubsubClient = testingModule.get(DaprPubSubClient);
     daprActorClient = testingModule.get(DaprActorClient);
@@ -41,7 +38,8 @@ describe('DaprPubSubActor', () => {
     expect(daprClient).toBeDefined();
     expect(pubsubClient).toBeDefined();
 
-    // Subscribe to the pubsub events
+    // Subscribe before app.init() starts the Dapr server, otherwise the sidecar may read
+    // the app's subscription list before this subscription exists and never deliver to it.
     await daprServer.pubsub.subscribe('pubsub', 'events', async (data: any) => {
       console.log('Received message', data);
       if (data.run !== runId) {
@@ -61,6 +59,10 @@ describe('DaprPubSubActor', () => {
       }
       return DaprPubSubStatusEnum.SUCCESS;
     });
+
+    app = testingModule.createNestApplication();
+    await app.init();
+    await app.listen(0);
     // Drain any previous messages
     await sleep(500, 2);
   });
