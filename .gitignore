@@ -1,5 +1,5 @@
 # dependencies
-/node_modules
+node_modules
 
 # IDE
 /.vscode
@@ -23,3 +23,10 @@ tmp
 
 # dist
 dist
+
+# turborepo cache
+.turbo
+
+# copied in from the repo root by packages/nest-dapr prepack
+packages/nest-dapr/README.md
+packages/nest-dapr/LICENSE

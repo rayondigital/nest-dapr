@@ -23,6 +23,8 @@ jobs:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
       - run: pnpm install --frozen-lockfile
-      - run: pnpm run build
-      # npm (not pnpm) publishes, keeping the existing OIDC provenance path
+      - run: pnpm --filter @rayondigital/nest-dapr run build
+      # npm (not pnpm) publishes, keeping the existing OIDC provenance path.
+      # prepack copies the root README.md and LICENSE into the package first.
       - run: npm publish --provenance
+        working-directory: packages/nest-dapr

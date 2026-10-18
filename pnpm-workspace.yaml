@@ -1,5 +1,6 @@
 packages:
-  - examples/basics
+  - packages/*
+  - apps/*
 
 # Dependency install scripts are blocked unless approved here.
 allowBuilds:
@@ -7,3 +8,7 @@ allowBuilds:
   '@nestjs/core': false
   # postinstall only warns about dependents' version ranges; nothing is built
   protobufjs: false
+
+# Flat (npm-style) node_modules so the example app and the library share one copy of
+# @dapr/dapr: its DaprClient class is the DI token both sides must agree on.
+nodeLinker: hoisted

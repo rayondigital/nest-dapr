@@ -871,7 +871,7 @@ export class AppService {
 
 | Example | Description                                                             |
 |---|-------------------------------------------------------------------------|
-| [Basics](examples/basics/README.md) | Demonstrates a very basic actors, pubsub & input binding using RabbitMQ |
+| [NestJS 10](apps/nest-10/README.md) | Demonstrates a very basic actors, pubsub & input binding using RabbitMQ |
 
 # Dapr Server
 
@@ -881,7 +881,7 @@ Whilst testing you will need to run a Dapr sidecar:
 - gRPC Transport `dapr run --app-id nest-dapr --app-protocol grpc --dapr-grpc-port 3501 --app-port 3001 --log-level debug`
 - Dual Mode (HTTP and gRPC) `dapr run --app-id nest-dapr --dapr-http-port 3500 --dapr-grpc-port 3501 --app-port 3001 --app-protocol grpc --app-protocol http`
 
-For testing components are defined in tests/components:
+For testing components are defined in `packages/nest-dapr/tests/components` (run from `packages/nest-dapr`):
 
 ```shell
 dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components
@@ -920,18 +920,24 @@ Released under the [MIT](LICENSE) license. No warranty expressed or implied.
 
 # Development
 
-This repository uses [pnpm](https://pnpm.io) workspaces (the library at the root, plus `examples/basics`).
+This repository is a [pnpm](https://pnpm.io) workspace orchestrated by [Turborepo](https://turborepo.com):
+
+- `packages/nest-dapr` is the published library, `@rayondigital/nest-dapr`
+- `apps/nest-10` is an example NestJS 10 app (not published)
+
 The pnpm version is pinned in `package.json` (`packageManager`), and Node 24 (LTS) is used for development (`.nvmrc`).
 
 ```bash
 corepack enable   # once: provides the pinned pnpm version
 pnpm install
-pnpm build
+pnpm build        # turbo: builds the library, then the apps
 ```
 
 Consumers of the published package are unaffected and can install it with npm, yarn or pnpm.
 
 # Testing
+
+Run these from `packages/nest-dapr`:
 
 ```bash
 pnpm test:in-memory
@@ -947,7 +953,11 @@ Other test modes, useful in specific situations:
 
 | Command | Description |
 |---|---|
+| `pnpm test:unit` | Runs only the specs that need no sidecar. |
+| `pnpm test:real` | Like `test:in-memory`, but starts a fresh `dapr run` sidecar for each spec. |
 | `pnpm test:emulator` | Runs against the lightweight in-process Dapr sidecar emulator (`lib/emulator/sidecar.ts`) instead of a real sidecar. No Dapr CLI or Redis required, so it's the fastest option for quick local iteration — but it's a hand-rolled emulation of a subset of the Dapr HTTP API, so treat `test:in-memory` as the source of truth before merging. |
 | `pnpm test` | Runs the Jest suite assuming a Dapr sidecar is already running externally (`DAPR_TEST_MODE` defaults to `real`). Pair with `pnpm start:dapr` in a separate terminal if you want to run tests repeatedly without relaunching the sidecar each time. |
+
+`test:unit`, `test:emulator` and `test:real` run each spec in its own Jest process (`scripts/run-specs.mjs`), print a per-spec summary, and fail if any test takes over 60s. They also run from the repository root through Turbo, and accept a name filter, e.g. `pnpm test:emulator pubsub`.
 
 Individual spec files can be targeted the usual Jest way, e.g. `pnpm test:in-memory -- invoke` to run only `tests/dapr-invoke.spec.ts`.

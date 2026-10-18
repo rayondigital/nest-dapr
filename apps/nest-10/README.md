@@ -1,4 +1,4 @@
-# Basics: nest-dapr example
+# nest-10: nest-dapr example (NestJS 10)
 
 Demonstrates Dapr integration with NestJS
 
@@ -11,12 +11,12 @@ This makes it the easiest way to reproduce and fix library issues live:
 ```bash
 # From the repo root
 pnpm install         # installs & links workspace members (only needed once, or after adding deps)
-pnpm build           # builds ../../dist
-cd examples/basics
+pnpm build           # builds packages/nest-dapr, then this app
+cd apps/nest-10
 pnpm start:dapr:memory
 ```
 
-After changing anything under `../../lib`, just re-run `pnpm build` at the repo root and restart the app —
+After changing anything under `packages/nest-dapr/lib`, just re-run `pnpm build` at the repo root and restart the app —
 no republish or reinstall needed.
 
 ## Dapr Setup
