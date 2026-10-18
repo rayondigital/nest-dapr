@@ -13,11 +13,12 @@ export class ActorRuntimeService {
     return ActorRuntime['instance'] as ActorRuntime;
   }
 
-  // Returns the actor manager for the given actor type name
-  getActorManager<TActorInterface>(actorTypeName: string) {
-    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-    // @ts-ignore
-    return this.getRuntime().getActorManager<TActorInterface>(actorTypeName);
+  // Returns the actor manager for the given actor type name.
+  // Typed as ActorManager<any>: Dapr's ActorManager<T> requires T extends AbstractActor, which actor
+  // interfaces don't, and an unconstrained ActorManager<TActorInterface> emits an invalid .d.ts.
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+  getActorManager<TActorInterface>(actorTypeName: string): ActorManager<any> {
+    return this.getRuntime().getActorManager<any>(actorTypeName);
   }
 
   getAllActors(): Map<string, any> {
@@ -35,9 +36,9 @@ export class ActorRuntimeService {
     return actors;
   }
 
-  getActors<TActorInterface>(actorTypeName: string) {
+  getActors<TActorInterface>(actorTypeName: string): Map<string, TActorInterface> {
     const manager = this.getActorManager<TActorInterface>(actorTypeName);
-    return manager.actors;
+    return manager.actors as Map<string, TActorInterface>;
   }
 
   getActor<TActorInterface>(actorType: Type<TActorInterface> | Function, actorId: string): TActorInterface {
