@@ -23,6 +23,7 @@ import { NestActorManager } from './actors/nest-actor-manager';
 import { DaprContextService } from './dapr-context-service';
 import { DaprMetadataAccessor } from './dapr-metadata.accessor';
 import { DAPR_MODULE_OPTIONS_TOKEN, DaprContextProvider, DaprModuleOptions } from './dapr.module';
+import { resolveWorkflowEndpoint } from './environment';
 import { DaprPubSubClient } from './pubsub/dapr-pubsub-client.service';
 import { DaprWorkflowClient } from './workflow/dapr-workflow-client.service';
 import { lazyWorkflow, Workflow } from './workflow/workflow';
@@ -85,10 +86,7 @@ export class DaprLoader implements OnModuleInit, OnApplicationBootstrap, OnAppli
 
     if (isWorkflowEnabled) {
       // Setup the Workflow Runtime
-      this.workflowRuntime = new WorkflowRuntime({
-        daprHost: this.options.serverHost,
-        daprPort: this.options.workflowOptions?.daprPort ?? '3501',
-      });
+      this.workflowRuntime = new WorkflowRuntime(resolveWorkflowEndpoint(this.options));
     }
 
     if (this.options.pubsubOptions?.defaultName) {
@@ -125,12 +123,10 @@ export class DaprLoader implements OnModuleInit, OnApplicationBootstrap, OnAppli
     }
 
     if (isEnabled && isWorkflowEnabled) {
-      this.logger.log('Starting Dapr workflow runtime');
+      const endpoint = resolveWorkflowEndpoint(this.options);
+      this.logger.log(`Starting Dapr workflow runtime (gRPC ${endpoint.daprHost}:${endpoint.daprPort})`);
       await this.workflowRuntime.start();
-      await this.workflowClient.start({
-        daprHost: this.options.serverHost,
-        daprPort: this.options.workflowOptions.daprPort ?? '3501',
-      });
+      await this.workflowClient.start(endpoint);
     }
 
     if (this.options.handlers?.onServerStarted) {

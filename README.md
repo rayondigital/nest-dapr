@@ -257,7 +257,7 @@ export class CounterController {
 
 ## Workflows
 
-> Note: Workflows communicate via GRPC and require the Dapr sidecar to be running with GRPC enabled. See [DaprServer](#dapr-server) section for more information.
+> Note: Workflows talk to the sidecar's **gRPC** API, not the HTTP API. The port comes from `workflowOptions.daprPort`, then `DAPR_GRPC_PORT`, then `50001`. See [Ports and endpoints](#ports-and-endpoints) for details.
 > The port for GRPC is set in the `DAPR_GRPC_PORT` environment variable.
 
 Workflows and Activities are annotated with the `@DaprWorkflow` and `@DaprActivity` decorators respectively.
@@ -641,20 +641,64 @@ To use `nest-dapr`, import the `DaprModule` into the root `AppModule` and run th
 export class AppModule {}
 ```
 
-`register()` takes an optional `DaprModuleOptions` object which allows passing arguments to `DaprServer` instance.
+`register()` takes an optional `DaprModuleOptions` object.
 
 ```typescript
 export interface DaprModuleOptions {
-  serverHost?: string;
-  serverPort?: string;
-  daprHost?: string;
-  daprPort?: string;
-  communicationProtocol?: CommunicationProtocolEnum;
-  clientOptions?: DaprClientOptions;
+  serverHost?: string; // App callback server listen address (NOT the sidecar)
+  serverPort?: string; // App callback server listen port (NOT the sidecar). '0' disables it.
+  communicationProtocol?: CommunicationProtocolEnum; // App callback server protocol
+  clientOptions?: Partial<DaprClientOptions>; // Sidecar client: daprHost, daprPort, communicationProtocol, actor, logger...
+  actorOptions?: { enabled: boolean; allowInternalCalls?: boolean };
+  workflowOptions?: { enabled: boolean; daprHost?: string; daprPort?: string }; // Sidecar gRPC API
+  pubsubOptions?: { defaultName?: string; onError?: (name, topicName, error) => DaprPubSubStatusEnum };
+  contextProvider?: DaprContextProvider;
+  catchErrors?: boolean;
+  disabled?: boolean;
+  handlers?: DaprModuleHandlers;
+  extraProviders?: Provider[];
 }
 ```
 
-See Dapr JS [docs](https://docs.dapr.io/developing-applications/sdks/js/js-server/) for more information about these arguments.
+## Ports and endpoints
+
+Dapr uses a sidecar architecture, so there are **three** separate endpoints involved. Mixing them up is the most common
+cause of `EADDRINUSE` and `DAPR_SIDECAR_COULD_NOT_BE_STARTED` errors.
+
+| Option | Direction | What it is | Default |
+|---|---|---|---|
+| `serverHost` / `serverPort` | sidecar → app | A **second** HTTP server started by `nest-dapr` inside your app (separate from Nest's own `app.listen()`). The sidecar calls it for actors, pubsub, bindings and service invocation. Must match the sidecar's `--app-port` / `dapr.io/app-port`. | `127.0.0.1:3000` (or `APP_PORT`) |
+| `clientOptions.daprHost` / `clientOptions.daprPort` | app → sidecar | The sidecar's **HTTP** API (when `clientOptions.communicationProtocol` is HTTP). Used by `DaprClient`, actors, state, pubsub and the startup health check. | `127.0.0.1:3500` (or `DAPR_HTTP_PORT`) |
+| `workflowOptions.daprHost` / `workflowOptions.daprPort` | app → sidecar | The sidecar's **gRPC** API. Workflows are gRPC only. `daprHost` falls back to `clientOptions.daprHost`. | `127.0.0.1:50001` (or `DAPR_GRPC_PORT`) |
+
+Things to watch for:
+
+- `serverPort` must not be your Nest HTTP port, and must not be a sidecar port. In Kubernetes the app and the sidecar share
+  the pod's network, so binding to `3500`/`50001` fails with `EADDRINUSE`.
+- `clientOptions.daprPort` must be the sidecar's HTTP port when using the HTTP protocol. Pointing it at the gRPC port makes
+  the health check time out with `DAPR_SIDECAR_COULD_NOT_BE_STARTED`.
+- `workflowOptions.daprPort` must be the sidecar's gRPC port, not the HTTP port.
+- In Kubernetes the sidecar injector sets `DAPR_HTTP_PORT` and `DAPR_GRPC_PORT`, so the defaults usually work as-is.
+
+### Migrating from the plain Dapr SDK
+
+If you were creating the workflow runtime and client yourself:
+
+```typescript
+new DaprWorkflowClient({ daprHost, daprPort });
+new WorkflowRuntime({ daprHost, daprPort });
+```
+
+move those values to `workflowOptions` (not `serverHost`/`serverPort`, and not `clientOptions`):
+
+```typescript
+DaprModule.register({
+  workflowOptions: { enabled: true, daprHost, daprPort },
+});
+```
+
+`nest-dapr` creates the runtime, registers every `@DaprWorkflow` / `@DaprActivity` provider, and exposes the client as the
+injectable `DaprWorkflowClient`.
 
 ## Async configuration
 
@@ -664,15 +708,23 @@ You can pass your options asynchronously instead of statically. In this case, us
 DaprModule.registerAsync({
   imports: [ConfigModule],
   useFactory: (configService: ConfigService) => ({
+    // App callback server (the sidecar calls this). Must match dapr.io/app-port.
     serverHost: configService.get('DAPR_SERVER_HOST'),
-    serverPort: configService.get('DAPR_SERVER_PORT'),
-    daprHost: configService.get('DAPR_HOST'),
-    daprPort: configService.get('DAPR_PORT'),
-    communicationProtocol: CommunicationProtocolEnum.GRPC,
+    serverPort: configService.get('DAPR_SERVER_PORT') ?? '3001',
+    communicationProtocol: CommunicationProtocolEnum.HTTP,
+    // Sidecar HTTP API
     clientOptions: {
+      daprHost: configService.get('DAPR_HOST'),
+      daprPort: configService.get('DAPR_HTTP_PORT'),
+      communicationProtocol: CommunicationProtocolEnum.HTTP,
       logger: {
         level: LogLevel.Verbose,
       },
+    },
+    // Sidecar gRPC API (workflows)
+    workflowOptions: {
+      enabled: true,
+      daprPort: configService.get('DAPR_GRPC_PORT'),
     },
   }),
   inject: [ConfigService],

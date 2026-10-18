@@ -52,6 +52,9 @@ export interface DaprModuleActorOptions {
 
 export interface DaprModuleWorkflowOptions {
   enabled: boolean;
+  /** Sidecar host for the workflow gRPC API. Defaults to `clientOptions.daprHost`, then 127.0.0.1. */
+  daprHost?: string;
+  /** Sidecar gRPC port (not the HTTP port). Defaults to DAPR_GRPC_PORT, then 50001. */
   daprPort?: string;
 }
 
@@ -70,11 +73,15 @@ export interface DaprModuleOptionsFactory {
   createDaprModuleOptions(): Promise<DaprModuleOptions> | DaprModuleOptions;
 }
 
+// Reentrancy is enabled by default, with a max stack depth of 6 calls (which is a sensible default).
+// See https://docs.dapr.io/developing-applications/building-blocks/actors/actors-runtime-config/
+export const DEFAULT_ACTOR_REENTRANCY_MAX_STACK_DEPTH = 6;
+export const DEFAULT_ACTOR_IDLE_TIMEOUT = '15m';
+export const DEFAULT_ACTOR_SCAN_INTERVAL = '1m';
+
 export function normalizeDaprModuleOptions(options?: DaprModuleOptions): DaprModuleOptions {
   const normalized = options ?? {};
   // Setup default options for actor clients if not provided.
-  // Reentrancy is enabled by default, with a max stack depth of 6 calls (which is a sensible default).
-  // See https://docs.dapr.io/developing-applications/building-blocks/actors/actors-runtime-config/
   if (!normalized.clientOptions) {
     normalized.clientOptions = {};
   }
@@ -82,10 +89,10 @@ export function normalizeDaprModuleOptions(options?: DaprModuleOptions): DaprMod
     normalized.clientOptions.actor = {
       reentrancy: {
         enabled: true,
-        maxStackDepth: 6,
+        maxStackDepth: DEFAULT_ACTOR_REENTRANCY_MAX_STACK_DEPTH,
       },
-      actorIdleTimeout: '15m',
-      actorScanInterval: '1m',
+      actorIdleTimeout: DEFAULT_ACTOR_IDLE_TIMEOUT,
+      actorScanInterval: DEFAULT_ACTOR_SCAN_INTERVAL,
     };
   }
   // Setup default options for workflows if not provided.
