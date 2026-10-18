@@ -4,70 +4,46 @@ import { ClsStore } from 'nestjs-cls/dist/src/lib/cls.options';
 import { DAPR_CORRELATION_ID_KEY, DAPR_TRACE_ID_KEY } from '../lib/dapr-context-service';
 import { getTraceId, withTracedContext } from '../lib/opentelemetry/trace';
 
+// How often the wait helpers re-check their condition. Kept short so tests finish as soon as the
+// condition holds (the emulator usually satisfies it within milliseconds).
+const POLL_INTERVAL_MS = 20;
+
+/**
+ * Polls `condition` until it returns true (resolves true) or `timeout` elapses (resolves false).
+ * The condition may be async, e.g. an actor call.
+ */
+export async function waitUntil(
+  condition: () => boolean | Promise<boolean>,
+  timeout = 20000,
+  interval = POLL_INTERVAL_MS,
+): Promise<boolean> {
+  const deadline = Date.now() + timeout;
+  while (Date.now() < deadline) {
+    if (await condition()) return true;
+    await new Promise((resolve) => setTimeout(resolve, interval));
+  }
+  return condition();
+}
+
 /**
  * Waits for an array to be populated with at least one element, or times out.
  */
-export function waitForArrayToBePopulated<T>(array: T[], timeout = 60000) {
-  return new Promise<boolean>((resolve) => {
-    if (array.length > 0) resolve(true);
-
-    const checkInterval = setInterval(() => {
-      if (array.length > 0) {
-        clearInterval(checkInterval);
-        clearTimeout(failureTimeout);
-        resolve(true);
-      }
-    }, 1000); // Check the array every 1000ms
-
-    const failureTimeout = setTimeout(() => {
-      clearInterval(checkInterval);
-      resolve(false);
-    }, timeout);
-  });
+export function waitForArrayToBePopulated<T>(array: T[], timeout = 20000) {
+  return waitUntil(() => array.length > 0, timeout);
 }
 
 /**
  * Waits for an array to have a length greater than or equal to the given number, or times out.
  */
-export function waitForArrayLengthToBe<T>(array: T[], length: number, timeout = 60000) {
-  return new Promise<boolean>((resolve) => {
-    if (array.length >= length) resolve(true);
-
-    const checkInterval = setInterval(() => {
-      if (array.length >= length) {
-        clearInterval(checkInterval);
-        clearTimeout(failureTimeout);
-        resolve(true);
-      }
-    }, 1000); // Check the array every 1000ms
-
-    const failureTimeout = setTimeout(() => {
-      clearInterval(checkInterval);
-      resolve(false);
-    }, timeout);
-  });
+export function waitForArrayLengthToBe<T>(array: T[], length: number, timeout = 20000) {
+  return waitUntil(() => array.length >= length, timeout);
 }
 
 /**
  * Waits for an array to contain the given expression, or times out.
  */
-export function waitForArrayToContain<T>(array: T[], expression: (item: T) => boolean, timeout = 30000) {
-  return new Promise<boolean>((resolve) => {
-    if (array.length > 0 && array.some(expression)) resolve(true);
-
-    const checkInterval = setInterval(() => {
-      if (array.length > 0 && array.some(expression)) {
-        clearInterval(checkInterval);
-        clearTimeout(failureTimeout);
-        resolve(true);
-      }
-    }, 500); // Check the array every 500ms
-
-    const failureTimeout = setTimeout(() => {
-      clearInterval(checkInterval);
-      resolve(false);
-    }, timeout);
-  });
+export function waitForArrayToContain<T>(array: T[], expression: (item: T) => boolean, timeout = 20000) {
+  return waitUntil(() => array.some(expression), timeout);
 }
 
 /**

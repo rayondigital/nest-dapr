@@ -3,7 +3,7 @@ import { TestModule } from './e2e/test.module';
 import { DaprClient, DaprPubSubStatusEnum, DaprServer } from '@dapr/dapr';
 import { INestApplication } from '@nestjs/common';
 import { randomUUID } from 'crypto';
-import { sleep, waitForArrayLengthToBe } from './test.utils';
+import { sleep, waitForArrayLengthToBe, waitUntil } from './test.utils';
 import { DaprActorClient, DaprPubSubClient } from '../lib';
 import { StatelessPubSubActorInterface } from './src/stateless-pubsub.actor';
 import { DaprEventEmitter } from '../lib/dapr-event-emitter.service';
@@ -63,8 +63,8 @@ describe('DaprPubSubActor', () => {
     app = testingModule.createNestApplication();
     await app.init();
     await app.listen(0);
-    // Drain any previous messages
-    await sleep(500, 2);
+    // Drain any messages left over from a previous run (only a real, long-lived sidecar has them)
+    if (sidecar.ports.mode !== 'emulator') await sleep(500, 2);
   });
 
   beforeEach(() => {
@@ -83,16 +83,15 @@ describe('DaprPubSubActor', () => {
         run: runId,
       };
       await pubsubClient.publish('pubsub', 'test-1', 'events', message);
-      await waitForArrayLengthToBe(messages, 1);
+      expect(await waitForArrayLengthToBe(messages, 1, 10000)).toBe(true);
       expect(messages.length).toEqual(1);
 
-      // The actor should have received the message
-      await sleep(250, 4);
-
+      // The actor receives the event 4 times: increment + handleEvent for producerId,
+      // and handleEvent for each of the 2 otherIds (all 'test-1')
       const actor = daprActorClient.getActor(StatelessPubSubActorInterface, 'test-1');
       await actor.reset();
-      const actorMessages = await actor.getMessages();
-      expect(actorMessages.length).toEqual(4);
+      expect(await waitUntil(async () => (await actor.getMessages()).length >= 4, 10000, 50)).toBe(true);
+      expect((await actor.getMessages()).length).toEqual(4);
     });
   });
 

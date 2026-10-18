@@ -5,12 +5,39 @@ import axios, { AxiosInstance } from 'axios';
 import bodyParser from 'body-parser';
 import express from 'express';
 
+export type SidecarRetryPolicy = {
+  /** Redeliveries after the first attempt (Dapr resiliency `maxRetries`). */
+  maxRetries: number;
+  /** Constant delay between attempts (Dapr resiliency `duration`). */
+  intervalMs: number;
+};
+
 export type SidecarOptions = {
   host: string;
   port: number; // sidecar HTTP port — what DAPR_HTTP_PORT points to
   appHost: string;
   appPort: number; // your NestJS app port — what DAPR_SERVER_PORT points to
+  /** App id reported by /v1.0/metadata. Defaults to DAPR_APP_ID, then 'test'. */
+  appId?: string;
+  /**
+   * Multiplier applied to reminder/timer dueTime, period and ttl, so real-world schedules run quickly
+   * (0.05 turns a 2s period into 100ms). Defaults to DEFAULT_TIME_SCALE; use 1 for real time.
+   */
+  timeScale?: number;
+  pubsub?: {
+    /** Inbound retry policy applied when the app answers RETRY or a non-2xx status. */
+    retry?: SidecarRetryPolicy;
+  };
 };
+
+// The emulator is for fast tests, so its defaults are short. Behaviour (counts, ordering) matches
+// tests/components/resiliency.yaml; only the waiting is compressed.
+
+/** Same retry count as `pubsubRetry` in tests/components/resiliency.yaml (3), but 10ms apart instead of 1s. */
+export const DEFAULT_PUBSUB_RETRY_POLICY: SidecarRetryPolicy = { maxRetries: 3, intervalMs: 10 };
+
+/** Reminders and timers run 20x faster than their declared schedules. */
+export const DEFAULT_TIME_SCALE = 0.05;
 
 type ReminderRegistration = {
   dueTime?: string;
@@ -49,6 +76,7 @@ export class DaprSidecarEmulator {
   private readonly reminders = new Map<string, ScheduledInvocation>();
   private readonly timers = new Map<string, ScheduledInvocation>();
   private readonly locks = new Map<string, { owner: string; expiresAt: number }>();
+  private readonly pubsubRetries = new Set<NodeJS.Timeout>();
 
   constructor(private readonly options: SidecarOptions) {
     this.http = axios.create({ timeout: 30_000, validateStatus: () => true });
@@ -94,6 +122,8 @@ export class DaprSidecarEmulator {
     this.reminders.clear();
     for (const inv of this.timers.values()) this.cancelInvocation(inv);
     this.timers.clear();
+    for (const timeout of this.pubsubRetries) clearTimeout(timeout);
+    this.pubsubRetries.clear();
 
     if (!this.server) return;
     const server = this.server;
@@ -115,7 +145,7 @@ export class DaprSidecarEmulator {
 
     // Metadata
     this.app.get('/v1.0/metadata', (_req, res) => {
-      res.json({ id: process.env.DAPR_APP_ID ?? 'test', components: [] });
+      res.json({ id: this.options.appId ?? process.env.DAPR_APP_ID ?? 'test', components: [] });
     });
 
     // Shutdown
@@ -379,9 +409,11 @@ export class DaprSidecarEmulator {
   ) {
     this.cancel(map, key);
 
-    const dueMs = parseDuration(dueTime) ?? 0;
-    const periodMs = parseDuration(period) ?? 0;
-    const ttlMs = parseDuration(ttl);
+    const scale = this.options.timeScale ?? DEFAULT_TIME_SCALE;
+    const dueMs = (parseDuration(dueTime) ?? 0) * scale;
+    const periodMs = (parseDuration(period) ?? 0) * scale;
+    const rawTtlMs = parseDuration(ttl);
+    const ttlMs = rawTtlMs === undefined ? undefined : rawTtlMs * scale;
 
     const inv: ScheduledInvocation = { expiresAt: ttlMs ? Date.now() + ttlMs : undefined };
 
@@ -446,13 +478,38 @@ export class DaprSidecarEmulator {
       const route = resolveRoute(sub);
       if (!route) continue;
 
-      try {
-        await this.http.post(this.appUrl(route), { data: payload });
-      } catch (err) {
-        if (this.isShutdownError(err)) return;
-        throw err;
-      }
+      await this.deliverPubSub(route, payload, 0);
     }
+  }
+
+  /**
+   * Delivers a message to the app, retrying like the Dapr sidecar does when the app answers
+   * `{ status: 'RETRY' }` or a non-2xx status. The first attempt is awaited (so publish errors
+   * still surface); retries run in the background like real redelivery.
+   */
+  private async deliverPubSub(route: string, payload: any, attempt: number): Promise<void> {
+    if (this.stopping) return;
+
+    let shouldRetry: boolean;
+    try {
+      const res = await this.http.post(this.appUrl(route), { data: payload });
+      shouldRetry = res.status >= 300 || res.data?.status === 'RETRY';
+    } catch (err) {
+      if (this.isShutdownError(err)) return;
+      if (attempt === 0) throw err;
+      shouldRetry = true;
+    }
+
+    const retry = this.options.pubsub?.retry ?? DEFAULT_PUBSUB_RETRY_POLICY;
+    if (!shouldRetry || attempt >= retry.maxRetries) return;
+
+    const timeout = setTimeout(() => {
+      this.pubsubRetries.delete(timeout);
+      this.deliverPubSub(route, payload, attempt + 1).catch((err) =>
+        this.logger.error(`PubSub redelivery to ${route} failed: ${msg(err)}`),
+      );
+    }, retry.intervalMs);
+    this.pubsubRetries.add(timeout);
   }
 
   // ---------------------------------------------------------------------------
@@ -474,13 +531,20 @@ export class DaprSidecarEmulator {
 
     const r = await this.http.request({ method, url: this.appUrl(path), data: body, headers });
 
+    // The real sidecar wraps a failed actor method in its own 500 error, embedding the app's status and body.
+    if (r.status >= 400) {
+      const appBody = typeof r.data === 'string' ? r.data : JSON.stringify(r.data ?? '');
+      res.status(500).json({
+        errorCode: 'ERR_ACTOR_INVOKE_METHOD',
+        message: `error invoke actor method: error from actor service: (${r.status}) ${appBody}`,
+      });
+      return;
+    }
+
     if (r.status === 204 || r.data === undefined) {
       res.status(r.status).send();
       return;
     }
-
-    console.log(r.status);
-    console.log(r.data);
 
     if (typeof r.data === 'object' || typeof r.data === 'number' || typeof r.data === 'boolean') {
       res.status(r.status).json(r.data);
@@ -539,7 +603,7 @@ export class DaprSidecarEmulator {
    *   DAPR_SERVER_PORT – app port            (default: random)
    *   DAPR_SERVER_HOST – app host            (default: 127.0.0.1)
    */
-  static async fromEnvironment(): Promise<SidecarOptions> {
+  static async fromEnvironment(overrides: Partial<SidecarOptions> = {}): Promise<SidecarOptions> {
     if (!process.env.DAPR_HTTP_PORT) {
       process.env.DAPR_HTTP_PORT = String(await randomPort());
     }
@@ -555,6 +619,7 @@ export class DaprSidecarEmulator {
       port: parseInt(process.env.DAPR_HTTP_PORT),
       appHost: process.env.DAPR_SERVER_HOST ?? '127.0.0.1',
       appPort: parseInt(process.env.DAPR_SERVER_PORT),
+      ...overrides,
     };
   }
 }

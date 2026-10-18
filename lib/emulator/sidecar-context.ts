@@ -1,10 +1,10 @@
 import { Logger } from '@nestjs/common';
-import { DaprSidecarEmulator } from './sidecar';
+import { DaprSidecarEmulator, SidecarOptions } from './sidecar';
 
 /**
- * DAPR_TEST_MODE=emulator (default) — starts an in-process DaprSidecarEmulator
- * DAPR_TEST_MODE=real — assumes a real Dapr sidecar is already running;
- *                                      reads ports from env vars and does nothing else
+ * DAPR_TEST_MODE=real (default) — assumes a real Dapr sidecar is already running;
+ *                                 reads ports from env vars and does nothing else
+ * DAPR_TEST_MODE=emulator — starts an in-process DaprSidecarEmulator
  */
 export type SidecarMode = 'emulator' | 'real';
 
@@ -34,8 +34,11 @@ export class SidecarContext {
    * Call this in beforeAll; the returned context exposes the resolved ports.
    * The env vars DAPR_HTTP_PORT, DAPR_GRPC_PORT, and DAPR_SERVER_PORT are set
    * so the Dapr SDK and your NestJS module see the correct values automatically.
+   *
+   * @param emulatorOptions Overrides for the emulator (e.g. `pubsub.retry`). Ignored in real mode,
+   *                        where behaviour comes from the sidecar's own components/resiliency config.
    */
-  static async start(): Promise<SidecarContext> {
+  static async start(emulatorOptions: Partial<SidecarOptions> = {}): Promise<SidecarContext> {
     const mode: SidecarMode = (process.env.DAPR_TEST_MODE as SidecarMode) ?? 'real';
 
     if (mode === 'real') {
@@ -50,7 +53,7 @@ export class SidecarContext {
     }
 
     // emulator mode — allocate ports and start the emulator
-    const options = await DaprSidecarEmulator.fromEnvironment();
+    const options = await DaprSidecarEmulator.fromEnvironment(emulatorOptions);
     const emulator = new DaprSidecarEmulator(options);
     await emulator.start();
 

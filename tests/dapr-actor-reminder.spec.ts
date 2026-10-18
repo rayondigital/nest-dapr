@@ -5,7 +5,7 @@ import { INestApplication } from '@nestjs/common';
 import { DaprActorClient } from '../lib/actors/dapr-actor-client.service';
 import { CacheService } from './src/cache.service';
 import { StatefulReminderActorInterface } from './src/stateful-reminder.actor';
-import { sleep } from './test.utils';
+import { waitUntil } from './test.utils';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 
 // Emulator mode: DAPR_TEST_MODE=emulator npm run test -- reminder
@@ -50,12 +50,10 @@ describe('DaprActorReminder', () => {
       await actor.schedule();
 
       try {
-        // Wait 10 seconds for the reminder to trigger 3 times
-        await sleep(1000, 10);
+        // Wait for the reminder (due 1s, every 2s) to trigger 3 times: about 5s on a real sidecar,
+        // about 250ms on the emulator, which compresses schedules by DEFAULT_TIME_SCALE
 
-        const value = await actor.getCounter();
-        expect(value).toBeDefined();
-        expect(value).toBeGreaterThanOrEqual(3);
+        expect(await waitUntil(async () => (await actor.getCounter()) >= 3, 15000, 50)).toBe(true);
       } finally {
         // Reminders are durable and outlive the app/sidecar unless explicitly unregistered
         // (its TTL is 30s, far longer than this test), so the sidecar would otherwise keep

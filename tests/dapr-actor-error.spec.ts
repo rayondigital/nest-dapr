@@ -50,6 +50,8 @@ describe('DaprActor', () => {
     });
 
     it('should call an actor and it should throw an error', async () => {
+      // Without this the test passes silently if throwError() resolves instead of throwing
+      expect.assertions(3);
       const actor = daprActorClient.getActor(StatelessCounterActorInterface, 'stateless-1');
       try {
         await actor.throwError();

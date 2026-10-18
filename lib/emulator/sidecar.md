@@ -19,6 +19,27 @@ await sidecar.start();
 await sidecar.stop();
 ```
 
+In specs, prefer `SidecarContext.start()` (see `sidecar-context.ts`), which picks emulator or real
+sidecar from `DAPR_TEST_MODE`, allocates ports and sets the env vars below. It accepts emulator
+overrides, which real mode ignores:
+
+```typescript
+const sidecar = await SidecarContext.start({ timeScale: 1, pubsub: { retry: { maxRetries: 3, intervalMs: 1000 } } });
+```
+
+## Options
+
+The emulator exists for fast tests, so its timing defaults are short. Behaviour (retry counts,
+ordering, error shapes) matches `tests/components/resiliency.yaml` and the real sidecar; only the waiting is compressed.
+
+| Option | Default | Description |
+|--------|---------|-------------|
+| `host` / `port` | `127.0.0.1` / random | Where the emulator listens (`DAPR_HTTP_PORT`) |
+| `appHost` / `appPort` | `127.0.0.1` / random | Where your NestJS app's Dapr server listens (`DAPR_SERVER_PORT`) |
+| `appId` | `DAPR_APP_ID`, then `'test'` | Reported by `/v1.0/metadata` |
+| `timeScale` | `0.05` (`DEFAULT_TIME_SCALE`) | Multiplier for reminder/timer `dueTime`, `period` and `ttl`. A 2s period runs every 100ms. Use `1` for real time. |
+| `pubsub.retry` | `{ maxRetries: 3, intervalMs: 10 }` (`DEFAULT_PUBSUB_RETRY_POLICY`) | Redelivery when the app answers `RETRY` or a non-2xx status |
+
 Set environment variables before bootstrapping your NestJS app:
 
 ```
@@ -38,7 +59,7 @@ DAPR_SIDECAR_HOST=127.0.0.1
 | `DELETE` | `/v1.0/state/:store/:key` | Delete a state key |
 | `POST` | `/v1.0/state/:store/bulk` | Bulk get by key array |
 | `POST` | `/v1.0/shutdown` | Stops the emulator |
-| `POST` | `/v1.0/actors/:type/:id/method/:method` | Proxies actor method call to app (`PUT /actors/...`) |
+| `POST` | `/v1.0/actors/:type/:id/method/:method` | Proxies actor method call to app (`PUT /actors/...`). A failed call returns the sidecar's `500 ERR_ACTOR_INVOKE_METHOD` error wrapping the app's status and body. |
 | `POST` | `/v1.0/actors/:type/:id/state` | Saves actor state (upsert / delete operations) |
 | `GET` | `/v1.0/actors/:type/:id/state/:key` | Reads a single actor state key |
 | `POST` | `/v1.0/actors/:type/:id/reminders/:name` | Registers a reminder |
@@ -55,6 +76,8 @@ Concurrent calls to the same actor instance are serialised with `async-lock` (pe
 ## PubSub dispatch
 
 On each publish the emulator calls `GET /dapr/subscribe` on the app to discover subscriptions, then `POST`s to the matched route with `{ data: <payload> }`. Topic wildcards `+` (single segment) and `#` (multi-segment) are supported.
+
+If the app answers `{ status: 'RETRY' }` or a non-2xx status, the message is redelivered per `pubsub.retry`. The first delivery is awaited by the publish call; redeliveries happen in the background and are cancelled by `stop()`.
 
 ## Duration format
 
