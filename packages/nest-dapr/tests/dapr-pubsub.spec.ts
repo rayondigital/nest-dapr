@@ -12,8 +12,8 @@ import { DEFAULT_PUBSUB_RETRY_POLICY } from '../lib/emulator/sidecar';
 // The emulator keeps the same retry count but redelivers much faster.
 const REAL_RETRY_INTERVAL_MS = 1000;
 
-// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- pubsub
-// Real sidecar: DAPR_TEST_MODE=real npm run test -- pubsub
+// Emulator mode: DAPR_TEST_MODE=emulator pnpm test -- pubsub
+// Real sidecar: DAPR_TEST_MODE=real pnpm test -- pubsub
 describe('DaprPubSub', () => {
   let sidecar: SidecarContext;
   let testingModule: TestingModule;

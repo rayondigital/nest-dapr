@@ -21,8 +21,8 @@ class Widget {
   }
 }
 
-// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- dapr-state
-// Real sidecar: DAPR_TEST_MODE=real npm run test -- dapr-state
+// Emulator mode: DAPR_TEST_MODE=emulator pnpm test -- dapr-state
+// Real sidecar: DAPR_TEST_MODE=real pnpm test -- dapr-state
 describe('DaprStateClient', () => {
   let sidecar: SidecarContext;
   let testingModule: TestingModule;

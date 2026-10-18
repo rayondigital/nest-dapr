@@ -871,7 +871,7 @@ export class AppService {
 
 | Example | Description                                                             |
 |---|-------------------------------------------------------------------------|
-| [Basics](examples/basics/README.md) | Demonstrates a very basic actors, pubsub & input binding using RabbitMQ |
+| [NestJS 10](apps/nest-10/README.md) | Demonstrates a very basic actors, pubsub & input binding using RabbitMQ |
 
 # Dapr Server
 
@@ -881,7 +881,7 @@ Whilst testing you will need to run a Dapr sidecar:
 - gRPC Transport `dapr run --app-id nest-dapr --app-protocol grpc --dapr-grpc-port 3501 --app-port 3001 --log-level debug`
 - Dual Mode (HTTP and gRPC) `dapr run --app-id nest-dapr --dapr-http-port 3500 --dapr-grpc-port 3501 --app-port 3001 --app-protocol grpc --app-protocol http`
 
-For testing components are defined in tests/components:
+For testing components are defined in `packages/nest-dapr/tests/components` (run from `packages/nest-dapr`):
 
 ```shell
 dapr run --app-id testing --app-protocol http --app-port 3001 --dapr-http-port 3500 --dapr-grpc-port 3501 --resources-path ./tests/components
@@ -918,10 +918,29 @@ Thanks to:
 
 Released under the [MIT](LICENSE) license. No warranty expressed or implied.
 
-# Testing
+# Development
+
+This repository is a [pnpm](https://pnpm.io) workspace orchestrated by [Turborepo](https://turborepo.com):
+
+- `packages/nest-dapr` is the published library, `@rayondigital/nest-dapr`
+- `apps/nest-10` is an example NestJS 10 app (not published)
+
+The pnpm version is pinned in `package.json` (`packageManager`), and Node 24 (LTS) is used for development (`.nvmrc`).
 
 ```bash
-npm run test:in-memory
+corepack enable   # once: provides the pinned pnpm version
+pnpm install
+pnpm build        # turbo: builds the library, then the apps
+```
+
+Consumers of the published package are unaffected and can install it with npm, yarn or pnpm.
+
+# Testing
+
+Run these from `packages/nest-dapr`:
+
+```bash
+pnpm test:in-memory
 ```
 
 This is the primary test suite and should be your default when running tests locally or in CI. It starts a real Dapr sidecar (via the Dapr CLI) configured against the in-memory-backed components in `tests/components` (`pubsub.in-memory`, `state.in-memory`), then runs the full Jest suite against it — exercising the actual Dapr sidecar and `@dapr/dapr` SDK integration, not a mocked or emulated one.
@@ -934,7 +953,11 @@ Other test modes, useful in specific situations:
 
 | Command | Description |
 |---|---|
-| `npm run test:emulator` | Runs against the lightweight in-process Dapr sidecar emulator (`lib/emulator/sidecar.ts`) instead of a real sidecar. No Dapr CLI or Redis required, so it's the fastest option for quick local iteration — but it's a hand-rolled emulation of a subset of the Dapr HTTP API, so treat `test:in-memory` as the source of truth before merging. |
-| `npm run test` | Runs the Jest suite assuming a Dapr sidecar is already running externally (`DAPR_TEST_MODE` defaults to `real`). Pair with `npm run start:dapr` in a separate terminal if you want to run tests repeatedly without relaunching the sidecar each time. |
+| `pnpm test:unit` | Runs only the specs that need no sidecar. |
+| `pnpm test:real` | Like `test:in-memory`, but starts a fresh `dapr run` sidecar for each spec. |
+| `pnpm test:emulator` | Runs against the lightweight in-process Dapr sidecar emulator (`lib/emulator/sidecar.ts`) instead of a real sidecar. No Dapr CLI or Redis required, so it's the fastest option for quick local iteration — but it's a hand-rolled emulation of a subset of the Dapr HTTP API, so treat `test:in-memory` as the source of truth before merging. |
+| `pnpm test` | Runs the Jest suite assuming a Dapr sidecar is already running externally (`DAPR_TEST_MODE` defaults to `real`). Pair with `pnpm start:dapr` in a separate terminal if you want to run tests repeatedly without relaunching the sidecar each time. |
 
-Individual spec files can be targeted the usual Jest way, e.g. `npm run test:in-memory -- invoke` to run only `tests/dapr-invoke.spec.ts`.
+`test:unit`, `test:emulator` and `test:real` run each spec in its own Jest process (`scripts/run-specs.mjs`), print a per-spec summary, and fail if any test takes over 60s. They also run from the repository root through Turbo, and accept a name filter, e.g. `pnpm test:emulator pubsub`.
+
+Individual spec files can be targeted the usual Jest way, e.g. `pnpm test:in-memory -- invoke` to run only `tests/dapr-invoke.spec.ts`.

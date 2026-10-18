@@ -7,8 +7,8 @@ import { DaprLockAcquisitionError, DaprLockClient } from '../lib';
 import { SidecarContext } from '../lib/emulator/sidecar-context';
 import { TestModule } from './e2e/test.module';
 
-// Emulator mode: DAPR_TEST_MODE=emulator npm run test -- lock
-// Real sidecar: DAPR_TEST_MODE=real npm run test -- lock
+// Emulator mode: DAPR_TEST_MODE=emulator pnpm test -- lock
+// Real sidecar: DAPR_TEST_MODE=real pnpm test -- lock
 describe('DaprLockClient', () => {
   let sidecar: SidecarContext;
   let testingModule: TestingModule;

@@ -13,12 +13,18 @@ jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v4
+      # Installs the pnpm version pinned in package.json "packageManager"
+      - uses: pnpm/action-setup@v6
+
+      - uses: actions/setup-node@v7
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
-      - run: npm ci
-      - run: npm run build --if-present
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm --filter @rayondigital/nest-dapr run build
+      # npm (not pnpm) publishes, keeping the existing OIDC provenance path.
+      # prepack copies the root README.md and LICENSE into the package first.
       - run: npm publish --provenance
+        working-directory: packages/nest-dapr
